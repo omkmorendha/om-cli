@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>om-cli — Spec Wiki</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-elev: #161b22;
+    --bg-code: #1c2128;
+    --border: #30363d;
+    --fg: #e6edf3;
+    --fg-dim: #9da7b3;
+    --fg-faint: #6e7681;
+    --accent: #d2a8ff;
+    --accent-2: #79c0ff;
+    --green: #7ee787;
+    --orange: #ffa657;
+    --red: #ff7b72;
+    --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.65; font-size: 16px; }
+  .page { max-width: 960px; margin: 0 auto; padding: 56px 40px 120px; }
+  header.hero { margin-bottom: 44px; padding-bottom: 30px; border-bottom: 1px solid var(--border); }
+  header.hero .brand { font-family: var(--mono); font-size: 13px; color: var(--fg-faint); letter-spacing: .5px; text-transform: uppercase; }
+  header.hero h1 { font-family: var(--mono); font-size: 40px; margin: 6px 0 10px; letter-spacing: -1px; color: var(--accent); }
+  header.hero .tag { color: var(--fg-dim); font-size: 18px; margin: 0; max-width: 620px; }
+  .pills { margin-top: 22px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { font-family: var(--mono); font-size: 12px; padding: 4px 11px; border-radius: 999px; background: var(--bg-code); border: 1px solid var(--border); color: var(--accent-2); }
+  .pill.alt { color: var(--green); }
+  .pill.warn { color: var(--orange); }
+  section { margin-bottom: 48px; }
+  h2 { font-size: 22px; margin: 0 0 8px; letter-spacing: -0.3px; }
+  h2 .num { font-family: var(--mono); font-size: 14px; color: var(--accent); margin-right: 10px; }
+  p { color: var(--fg-dim); }
+  p strong { color: var(--fg); }
+  code { font-family: var(--mono); background: var(--bg-code); padding: 1.5px 6px; border-radius: 5px; font-size: 13.5px; color: var(--accent); }
+  a.inline { color: var(--accent-2); }
+  /* truth banner */
+  .truth { border: 1px solid var(--green); background: rgba(126,231,135,.06); border-radius: 12px; padding: 16px 22px; margin: 0 0 44px; }
+  .truth .label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--green); display: block; margin-bottom: 4px; }
+  .truth p { margin: 0; color: var(--fg-dim); font-size: 14.5px; }
+  /* page grid */
+  .pages { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .entry { display: block; text-decoration: none; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; transition: all .14s; }
+  .entry:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .entry .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .entry h3 { font-family: var(--mono); font-size: 16px; margin: 0; color: var(--fg); }
+  .entry p { margin: 0; font-size: 14px; color: var(--fg-dim); }
+  .badge { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; padding: 3px 9px; border-radius: 999px; }
+  .badge.current { background: rgba(126,231,135,.12); color: var(--green); border: 1px solid rgba(126,231,135,.3); }
+  .badge.planned { background: rgba(255,166,87,.1); color: var(--orange); border: 1px solid rgba(255,166,87,.25); }
+  .badge.draft { background: rgba(121,192,255,.1); color: var(--accent-2); border: 1px solid rgba(121,192,255,.25); }
+  .entry.disabled { opacity: .58; pointer-events: none; }
+  /* convention list */
+  ul.conv { color: var(--fg-dim); padding-left: 0; list-style: none; }
+  ul.conv li { padding: 9px 0 9px 30px; position: relative; border-bottom: 1px solid var(--border); }
+  ul.conv li:last-child { border-bottom: none; }
+  ul.conv li::before { content: "§"; position: absolute; left: 6px; color: var(--accent); font-family: var(--mono); }
+  footer { color: var(--fg-faint); font-size: 13px; border-top: 1px solid var(--border); padding-top: 20px; margin-top: 60px; font-family: var(--mono); }
+  @media (max-width: 720px) { .pages { grid-template-columns: 1fr; } .page { padding: 36px 22px 80px; } }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="brand">om-cli · spec wiki</div>
+      <h1>om-cli</h1>
+      <p class="tag">Specification wiki for a terminal-native agentic coding harness. This folder is the project's source of truth.</p>
+      <div class="pills">
+        <span class="pill">Bun</span>
+        <span class="pill">TypeScript</span>
+        <span class="pill">OpenTUI</span>
+        <span class="pill alt">Anthropic + OpenAI</span>
+      </div>
+    </header>
+
+    <div class="truth">
+      <span class="label">Source of truth</span>
+      <p>The pages in this <code>spec/</code> folder are authoritative for what om-cli is and how it's built. When code and spec disagree, the spec wins or the spec gets updated — never silently diverge. See <code>CLAUDE.md</code> at the repo root for the full conventions.</p>
+    </div>
+
+    <!-- Spec pages -->
+    <section>
+      <h2><span class="num">01</span>Spec Pages</h2>
+      <p>Each page is a standalone HTML file in this folder. New pages link back here via the sidebar "↑ Spec Index".</p>
+      <div class="pages">
+
+        <a class="entry" href="v0.html">
+          <div class="top"><h3>v0 — Core Spec</h3><span class="badge current">Current</span></div>
+          <p>The buildable v0: architecture, agent loop, provider layer, tools, permissions, sessions, TUI, milestones, and resolved decisions.</p>
+        </a>
+
+        <span class="entry disabled">
+          <div class="top"><h3>providers.html</h3><span class="badge planned">Planned</span></div>
+          <p>Deep dive on the Anthropic / OpenAI Responses adapters — wire-format mappings, streaming parse, error handling.</p>
+        </span>
+
+        <span class="entry disabled">
+          <div class="top"><h3>tools.html</h3><span class="badge planned">Planned</span></div>
+          <p>Per-tool contracts: input schemas, result shapes, truncation rules, the exact-string edit algorithm.</p>
+        </span>
+
+        <span class="entry disabled">
+          <div class="top"><h3>tui.html</h3><span class="badge planned">Planned</span></div>
+          <p>OpenTUI component tree, event wiring, keybindings, rendering rules for streaming + tool cards.</p>
+        </span>
+
+        <span class="entry disabled">
+          <div class="top"><h3>roadmap.html</h3><span class="badge planned">Planned</span></div>
+          <p>Post-v0 features: MCP client, sub-agents, context compaction, hooks, slash-commands, diff review UI.</p>
+        </span>
+
+        <span class="entry disabled">
+          <div class="top"><h3>decisions.html</h3><span class="badge planned">Planned</span></div>
+          <p>Decision log (ADR-style): each significant choice, the options weighed, and why. Grows over time.</p>
+        </span>
+
+      </div>
+    </section>
+
+    <!-- Wiki conventions -->
+    <section>
+      <h2><span class="num">02</span>Wiki Conventions</h2>
+      <ul class="conv">
+        <li><strong>One topic per file.</strong> Each spec page is self-contained HTML, lowercase-kebab named (<code>providers.html</code>, <code>diff-ui.html</code>).</li>
+        <li><strong>Versioned core spec.</strong> The core spec is versioned (<code>v0.html</code>, later <code>v1.html</code>). Old versions are kept, never overwritten — they're the historical record.</li>
+        <li><strong>Index is the hub.</strong> <code>index.html</code> lists every page with a status badge (Current / Draft / Planned) and links it.</li>
+        <li><strong>Shared styling.</strong> Pages reuse the same inline dark theme and the sidebar/page layout so the wiki reads as one document.</li>
+        <li><strong>Back-link.</strong> Every page links back to <code>index.html</code>.</li>
+        <li><strong>Self-contained.</strong> No external assets or CDN — styles are inline so the wiki opens offline from disk.</li>
+      </ul>
+    </section>
+
+    <footer>
+      om-cli spec wiki · source of truth · drafted 2026-05-30
+    </footer>
+  </div>
+</body>
+</html>
