@@ -408,8 +408,8 @@ interface ToolResult {
 <pre><code>interface ToolContext {
   cwd: string;                 // resolved working directory for relative paths
   readSet: ReadSet;            // files read this session (edit prerequisite)
-  signal: AbortSignal;         // threaded from the turn; honored by bash &amp; long reads
-  logger: Logger;              // structured logger -> transcript + debug
+  signal: AbortSignal;         // threaded from the turn; honored by bash, read &amp; grep
+  log: Logger;                 // structured logger -> transcript + debug
 }
 
 interface ReadSet {
@@ -419,14 +419,17 @@ interface ReadSet {
 
 interface Logger {
   debug(msg: string, fields?: Record&lt;string, unknown&gt;): void;
+  info(msg: string, fields?: Record&lt;string, unknown&gt;): void;
   warn(msg: string, fields?: Record&lt;string, unknown&gt;): void;
   error(msg: string, fields?: Record&lt;string, unknown&gt;): void;
+  child(scope: string): Logger;  // scoped child, e.g. ctx.log.child("read")
+  close(): Promise&lt;void&gt;;
 }</code></pre>
       <ul>
         <li><strong><code>cwd</code></strong> — used to resolve relative path arguments and to render <code>rel()</code> in previews. The session sets it once at startup; v0 has no per-turn <code>cd</code> persistence (a <code>bash cd</code> does not move <code>ctx.cwd</code>).</li>
         <li><strong><code>readSet</code></strong> — the session-scoped set of files that have been successfully <code>read</code>. <code>read.run()</code> calls <code>add(resolvedPath)</code>; <code>edit.run()</code> calls <code>has(resolvedPath)</code> as its first gate (<a class="inline" href="#edit-algo">§10</a>). It lives on the <a class="inline" href="v0.html#session">Session</a> and is keyed by resolved absolute path.</li>
-        <li><strong><code>signal</code></strong> — the turn's <code>AbortSignal</code>. <code>bash</code> passes it to <code>Bun.spawn</code>; <code>read</code>/<code>grep</code> check it between chunks. On abort, <code>run()</code> rejects/returns promptly so the loop can unwind (<a class="inline" href="v0.html#loop">loop invariants</a>).</li>
-        <li><strong><code>logger</code></strong> — structured logging that also feeds the transcript. Tools log decisions (backend chosen, truncation applied) at <code>debug</code>; never log file contents or secrets.</li>
+        <li><strong><code>signal</code></strong> — the turn's <code>AbortSignal</code>. <code>bash</code> passes it to <code>Bun.spawn</code>; <code>grep</code> passes it to the ripgrep spawn and checks it between files in the fallback scanner; <code>read</code> checks it up front (v0 reads a file in a single pass, so there are no chunk boundaries to poll). On abort, <code>run()</code> returns promptly (with <code>error:"aborted"</code>) so the loop can unwind (<a class="inline" href="v0.html#loop">loop invariants</a>).</li>
+        <li><strong><code>log</code></strong> — structured logging that also feeds the transcript. Tools open a scoped child (<code>ctx.log.child("&lt;tool&gt;")</code>) and log decisions (backend chosen, truncation applied) at <code>debug</code>; never log file contents or secrets.</li>
       </ul>
       <div class="note">
         <span class="label">Why a read-set, not mtime checks</span>

@@ -101,8 +101,9 @@ export const readTool: Tool<ReadInput> = {
     const p = abs(input.path, ctx.cwd);
 
     // Honor abort up front so an already-cancelled turn returns promptly
-    // without touching the disk (spec tools.html §09).
-    if (ctx.signal.aborted) return ToolResult.error("interrupted");
+    // without touching the disk (spec tools.html §09). Use the same "aborted"
+    // wording bash uses for the same condition.
+    if (ctx.signal.aborted) return ToolResult.error("aborted");
 
     let st;
     try {

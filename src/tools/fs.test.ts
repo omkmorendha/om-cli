@@ -78,7 +78,7 @@ describe("read", () => {
     const p = write("a.txt", "x\n");
     const r = await readTool.run({ path: p }, abortedCtx());
     expect(r.ok).toBe(false);
-    expect(r.error).toBe("interrupted");
+    expect(r.error).toBe("aborted");
     // The read was not recorded in the read-set since it never completed.
     expect(readSet.has(p)).toBe(false);
   });

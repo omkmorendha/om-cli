@@ -536,7 +536,7 @@ const stream = await client.responses.create(body, { signal: req.signal }); // o
   }
   throw err;                  // genuine failure — bubble to the loop's error path
 }</code></pre>
-      <p>The loop then closes out the turn: any tool call already emitted still receives a result message ("interrupted by user") to keep history valid per the <a class="inline" href="v0.html#loop">§5</a> "every call gets a result" invariant, and the <code>AbortSignal</code> also unwinds any in-flight <code>Bun.spawn</code> in the <a class="inline" href="tools.html"><code>bash</code> tool</a>.</p>
+      <p>The loop then closes out the turn: every tool call declared in the assistant message — the one in flight and any that had not yet started — receives an "interrupted" result message to keep history valid per the <a class="inline" href="v0.html#loop">§5</a> "every call gets a result" invariant, and the <code>AbortSignal</code> also unwinds any in-flight <code>Bun.spawn</code> in the <a class="inline" href="tools.html"><code>bash</code> tool</a>.</p>
       <h3>Error taxonomy</h3>
       <table>
         <thead><tr><th>Condition</th><th>Adapter behavior</th><th>Surfaces as</th></tr></thead>
