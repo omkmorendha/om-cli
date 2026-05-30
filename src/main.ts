@@ -359,13 +359,20 @@ export function useTuiFrontend(args: ParsedArgs, isTty: boolean): boolean {
 async function makeFrontend(
   useTui: boolean,
   log: Logger,
+  tuiOptions: { cwd: string; providerLabel: string },
 ): Promise<{ frontend: Frontend; tui: boolean }> {
   if (useTui) {
     try {
       const mod = (await import("./tui/tui.ts")) as {
-        TuiFrontend: new () => Frontend;
+        TuiFrontend: new (opts?: {
+          cwd?: string;
+          providerLabel?: string;
+          log?: Logger;
+        }) => Frontend;
       };
-      return { frontend: new mod.TuiFrontend(), tui: true };
+      // Pass cwd + provider/model so the header reflects the live session
+      // instead of defaulting to an empty label (spec tui §03).
+      return { frontend: new mod.TuiFrontend({ ...tuiOptions, log }), tui: true };
     } catch (err) {
       log.warn("TUI frontend unavailable; falling back to stdout", {
         error: err instanceof Error ? err.message : String(err),
@@ -461,7 +468,11 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   // 7. Frontend. `tui` reflects what we *actually* mounted: a failed TUI import
   //    degrades to stdout, in which case we must drive the headless input loop.
   const wantTui = useTuiFrontend(args, Boolean(process.stdout.isTTY));
-  const { frontend, tui: useTui } = await makeFrontend(wantTui, log);
+  const providerLabel = `${config.provider} · ${config.model}`;
+  const { frontend, tui: useTui } = await makeFrontend(wantTui, log, {
+    cwd,
+    providerLabel,
+  });
 
   // The frontend reports the user's decision back here; resolve the parked
   // requestApproval promise so gate.check (inside the loop) unblocks.

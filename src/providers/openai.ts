@@ -256,7 +256,16 @@ export class ResponsesParser {
       case "response.incomplete": {
         this.sawCompleted = true;
         this.usage = toUsage(ev.response.usage);
-        this.stopReason = "max_tokens";
+        // Mirror the completed path (providers.html §06): only a token-budget
+        // cutoff maps to max_tokens. Any other incomplete reason (e.g.
+        // content_filter) has no canonical StopReason, so it falls back to
+        // "end". A tool call already in flight keeps its tool_use stop reason.
+        if (!this.sawToolCall) {
+          this.stopReason =
+            ev.response.incomplete_details?.reason === "max_output_tokens"
+              ? "max_tokens"
+              : "end";
+        }
         return [];
       }
 
