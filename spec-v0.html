@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>om-cli — Agentic Harness Spec v0</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-elev: #161b22;
+    --bg-code: #1c2128;
+    --border: #30363d;
+    --fg: #e6edf3;
+    --fg-dim: #9da7b3;
+    --fg-faint: #6e7681;
+    --accent: #d2a8ff;
+    --accent-2: #79c0ff;
+    --green: #7ee787;
+    --orange: #ffa657;
+    --red: #ff7b72;
+    --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    line-height: 1.65;
+    font-size: 16px;
+  }
+  .wrap { display: grid; grid-template-columns: 260px 1fr; max-width: 1400px; margin: 0 auto; }
+  /* Sidebar */
+  nav {
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    border-right: 1px solid var(--border);
+    padding: 28px 20px;
+    background: var(--bg-elev);
+  }
+  nav .brand { font-family: var(--mono); font-weight: 700; font-size: 18px; color: var(--accent); letter-spacing: -0.5px; }
+  nav .brand .v { color: var(--fg-faint); font-weight: 400; font-size: 13px; }
+  nav ol { list-style: none; padding: 0; margin: 24px 0 0; counter-reset: sec; }
+  nav ol li { counter-increment: sec; margin: 2px 0; }
+  nav ol li a { display: block; color: var(--fg-dim); text-decoration: none; font-size: 14px; padding: 5px 10px; border-radius: 6px; transition: all .12s; }
+  nav ol li a::before { content: counter(sec) ".  "; color: var(--fg-faint); font-family: var(--mono); font-size: 12px; }
+  nav ol li a:hover { background: var(--bg-code); color: var(--fg); }
+  /* Main */
+  main { padding: 48px 56px 120px; max-width: 920px; }
+  header.hero { margin-bottom: 56px; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
+  header.hero h1 { font-family: var(--mono); font-size: 38px; margin: 0 0 8px; letter-spacing: -1px; }
+  header.hero .tag { color: var(--fg-dim); font-size: 18px; margin: 0; }
+  .pills { margin-top: 22px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { font-family: var(--mono); font-size: 12px; padding: 4px 11px; border-radius: 999px; background: var(--bg-code); border: 1px solid var(--border); color: var(--accent-2); }
+  .pill.alt { color: var(--green); }
+  .pill.warn { color: var(--orange); }
+  section { margin-bottom: 56px; scroll-margin-top: 24px; }
+  h2 { font-size: 26px; margin: 0 0 18px; letter-spacing: -0.4px; display: flex; align-items: baseline; gap: 12px; }
+  h2 .num { font-family: var(--mono); font-size: 15px; color: var(--accent); }
+  h3 { font-size: 18px; margin: 30px 0 10px; color: var(--fg); }
+  h4 { font-size: 15px; margin: 22px 0 8px; color: var(--accent-2); font-family: var(--mono); }
+  p { color: var(--fg-dim); }
+  p strong, li strong { color: var(--fg); }
+  ul, ol.body { color: var(--fg-dim); padding-left: 22px; }
+  li { margin: 5px 0; }
+  code { font-family: var(--mono); background: var(--bg-code); padding: 1.5px 6px; border-radius: 5px; font-size: 13.5px; color: var(--accent); }
+  pre { background: var(--bg-code); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; overflow-x: auto; font-size: 13px; line-height: 1.55; }
+  pre code { background: none; padding: 0; color: var(--fg); }
+  .lead { font-size: 17px; color: var(--fg-dim); }
+  /* callouts */
+  .note { border-left: 3px solid var(--accent-2); background: rgba(121,192,255,.07); padding: 12px 18px; border-radius: 0 8px 8px 0; margin: 18px 0; }
+  .note.scope { border-color: var(--green); background: rgba(126,231,135,.07); }
+  .note.defer { border-color: var(--orange); background: rgba(255,166,87,.07); }
+  .note .label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--fg-faint); display: block; margin-bottom: 4px; }
+  /* table */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--fg-faint); font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+  td { color: var(--fg-dim); }
+  td code { font-size: 12.5px; }
+  /* diagram */
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 10px; padding: 22px; margin: 18px 0; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: var(--fg-dim); white-space: pre; overflow-x: auto; }
+  .diagram b { color: var(--accent); }
+  .diagram .c2 { color: var(--accent-2); }
+  .diagram .g { color: var(--green); }
+  .diagram .o { color: var(--orange); }
+  /* layout helpers */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+  .card h4 { margin-top: 0; }
+  .checklist { list-style: none; padding: 0; }
+  .checklist li { padding-left: 28px; position: relative; }
+  .checklist li::before { content: "▢"; position: absolute; left: 4px; color: var(--fg-faint); font-family: var(--mono); }
+  .checklist li.done::before { content: "▣"; color: var(--green); }
+  footer { color: var(--fg-faint); font-size: 13px; border-top: 1px solid var(--border); padding-top: 20px; margin-top: 60px; font-family: var(--mono); }
+  a.inline { color: var(--accent-2); }
+  @media (max-width: 880px) {
+    .wrap { grid-template-columns: 1fr; }
+    nav { position: relative; height: auto; }
+    main { padding: 32px 24px 80px; }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <div class="brand">om-cli <span class="v">spec v0</span></div>
+    <ol>
+      <li><a href="#overview">Overview & Goals</a></li>
+      <li><a href="#scope">v0 Scope</a></li>
+      <li><a href="#stack">Tech Stack</a></li>
+      <li><a href="#arch">Architecture</a></li>
+      <li><a href="#loop">Agent Loop</a></li>
+      <li><a href="#provider">Provider Layer</a></li>
+      <li><a href="#tools">Tools</a></li>
+      <li><a href="#permissions">Permissions</a></li>
+      <li><a href="#session">Sessions & Context</a></li>
+      <li><a href="#tui">TUI Layer</a></li>
+      <li><a href="#config">Config & Layout</a></li>
+      <li><a href="#milestones">Milestones</a></li>
+      <li><a href="#open">Open Questions</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <h1>om-cli</h1>
+      <p class="tag">A custom agentic coding harness — design reference, v0.</p>
+      <div class="pills">
+        <span class="pill">Bun</span>
+        <span class="pill">TypeScript</span>
+        <span class="pill">OpenTUI</span>
+        <span class="pill alt">Anthropic + OpenAI</span>
+        <span class="pill warn">Draft · 2026-05-30</span>
+      </div>
+    </header>
+
+    <!-- 1 -->
+    <section id="overview">
+      <h2><span class="num">01</span> Overview &amp; Goals</h2>
+      <p class="lead">om-cli is a terminal-native agentic harness in the spirit of Claude Code / Codex: an LLM drives a loop, calls tools to read and modify the local filesystem and run commands, and a TUI renders the conversation, tool activity, and approvals.</p>
+      <h3>Design goals</h3>
+      <ul>
+        <li><strong>Provider-agnostic core.</strong> The agent loop is written once; Anthropic and OpenAI sit behind one interface.</li>
+        <li><strong>Tools are the only side-effect surface.</strong> The model never touches the disk directly — every effect flows through a registered, schema-validated tool that goes through the permission gate.</li>
+        <li><strong>Streaming-first.</strong> Text, tool calls, and tool results stream to the TUI as they arrive; nothing blocks on full completion.</li>
+        <li><strong>Stop-anywhere.</strong> The user can interrupt mid-stream or mid-tool and the loop unwinds cleanly.</li>
+        <li><strong>Small, legible core.</strong> v0 favors a readable single-process design over distributed/daemon architecture.</li>
+      </ul>
+      <div class="note">
+        <span class="label">Doc role</span>
+        This is a living design reference for the build, not a pitch. It locks in a tight v0 and explicitly defers the rest (§2, §12).
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="scope">
+      <h2><span class="num">02</span> v0 Scope</h2>
+      <div class="grid2">
+        <div class="card">
+          <h4 style="color:var(--green)">In scope</h4>
+          <ul class="checklist">
+            <li>Single-turn → multi-turn agent loop with tool calling</li>
+            <li>Provider abstraction: Anthropic + OpenAI</li>
+            <li>Streaming responses to the TUI</li>
+            <li>Core tools: read, write, edit, ls, glob, grep, bash</li>
+            <li>Permission gate with allow/deny/always-allow</li>
+            <li>In-memory session + on-disk transcript log</li>
+            <li>OpenTUI shell: input box, scrollback, tool cards, approval prompt</li>
+            <li>Project config file + system prompt assembly</li>
+            <li>Ctrl-C interrupt / cancel</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h4 style="color:var(--orange)">Deferred (post-v0)</h4>
+          <ul>
+            <li>MCP client / external tool servers</li>
+            <li>Sub-agents &amp; parallel task fan-out</li>
+            <li>Context compaction / summarization</li>
+            <li>Hooks &amp; lifecycle events</li>
+            <li>Slash-command / skill system</li>
+            <li>Multi-provider routing per-task</li>
+            <li>Persistent cross-session memory</li>
+            <li>Diff review UI / patch staging</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note scope">
+        <span class="label">v0 definition of done</span>
+        From a project directory, run <code>om</code>, type a request, and watch the agent read files, propose edits, ask for permission, apply approved changes, and run a command — end to end, with both providers selectable.
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="stack">
+      <h2><span class="num">03</span> Tech Stack</h2>
+      <table>
+        <thead><tr><th>Layer</th><th>Choice</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Runtime</td><td><code>Bun</code></td><td>Fast startup, native TS, built-in fetch / spawn / file APIs — no build step.</td></tr>
+          <tr><td>Language</td><td><code>TypeScript</code> (strict)</td><td>Schema-typed tools and provider contracts; discriminated unions for events.</td></tr>
+          <tr><td>TUI</td><td><code>OpenTUI</code></td><td>Component-based terminal rendering; reactive scrollback + input.</td></tr>
+          <tr><td>Schema</td><td><code>zod</code> (or <code>@valibot</code>)</td><td>Single source for tool input schemas → JSON Schema for the model, runtime validation for execution.</td></tr>
+          <tr><td>Anthropic</td><td><code>@anthropic-ai/sdk</code></td><td>Messages API with streaming tool use.</td></tr>
+          <tr><td>OpenAI</td><td><code>openai</code></td><td>Responses / Chat Completions with tool calling.</td></tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <span class="label">Bun-native bias</span>
+        Prefer <code>Bun.spawn</code>, <code>Bun.file</code>, and <code>Bun.Glob</code> over npm equivalents to keep the dependency surface thin and startup fast.
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="arch">
+      <h2><span class="num">04</span> Architecture</h2>
+      <p>One Bun process. The <strong>core</strong> is UI-agnostic and emits a typed event stream; the <strong>TUI</strong> is a consumer of that stream and a producer of user input. This boundary keeps the loop testable headless and leaves room for a future non-TUI front end.</p>
+      <div class="diagram">┌──────────────────────────────────────────────────────────┐
+│                      <b>OpenTUI Layer</b>                        │
+│   input box · scrollback · tool cards · approval modal     │
+└───────────────▲───────────────────────────┬───────────────┘
+        user input │                 event stream │ (text/tool/approval)
+┌───────────────┴───────────────────────────▼───────────────┐
+│                      <b>Agent Core</b>                          │
+│  ┌────────────┐   ┌──────────────┐   ┌─────────────────┐  │
+│  │ <span class="c2">Agent Loop</span> │──▶│ <span class="c2">Provider</span>     │   │ <span class="g">Session/Context</span> │  │
+│  │            │   │ (A / OpenAI) │   │  transcript     │  │
+│  └─────┬──────┘   └──────────────┘   └─────────────────┘  │
+│        │ tool calls                                        │
+│  ┌─────▼──────┐   ┌──────────────┐                         │
+│  │ <span class="c2">Tool Reg.</span>  │──▶│ <span class="o">Permission</span>   │── allow/deny ──┐         │
+│  └─────┬──────┘   └──────────────┘                │         │
+│        │ approved                                  │         │
+│  ┌─────▼────────────────────────────────────────▼──────┐  │
+│  │  <span class="g">Effects</span>: fs read/write · glob/grep · Bun.spawn      │  │
+│  └──────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────┘</div>
+      <h3>Event stream contract</h3>
+      <p>Core → TUI is a single async iterable of discriminated events. This is the seam everything hangs off of.</p>
+<pre><code>type AgentEvent =
+  | { type: "text.delta";   text: string }
+  | { type: "text.done";    text: string }
+  | { type: "tool.start";   id: string; name: string; input: unknown }
+  | { type: "tool.result";  id: string; output: ToolResult }
+  | { type: "approval.request"; id: string; tool: string; preview: string }
+  | { type: "turn.done";    stopReason: StopReason; usage: Usage }
+  | { type: "error";        message: string; fatal: boolean };</code></pre>
+    </section>
+
+    <!-- 5 -->
+    <section id="loop">
+      <h2><span class="num">05</span> Agent Loop</h2>
+      <p>The loop is the heart of the harness: send context to the provider, stream the reply, execute any tool calls, append results, repeat until the model stops without requesting tools.</p>
+<pre><code>async function* runTurn(session: Session): AsyncGenerator&lt;AgentEvent&gt; {
+  while (true) {
+    const stream = provider.stream({
+      system: session.systemPrompt,
+      messages: session.messages,
+      tools: registry.specs(),          // JSON Schema for the model
+    });
+
+    const toolCalls: ToolCall[] = [];
+    for await (const ev of stream) {
+      if (ev.type === "text.delta") yield ev;
+      if (ev.type === "tool_call")  toolCalls.push(ev.call);
+    }
+
+    if (toolCalls.length === 0) {       // model is done talking
+      yield { type: "turn.done", stopReason: "end", usage };
+      return;
+    }
+
+    // Execute each requested tool (sequential in v0)
+    for (const call of toolCalls) {
+      yield { type: "tool.start", id: call.id, name: call.name, input: call.input };
+      const decision = await permission.check(call);   // may yield approval.request
+      const result = decision.allowed
+        ? await registry.run(call)
+        : ToolResult.denied(call);
+      yield { type: "tool.result", id: call.id, output: result };
+      session.appendToolResult(call, result);
+    }
+    // loop continues: results are now in context for the next provider call
+  }
+}</code></pre>
+      <h3>Loop invariants</h3>
+      <ul>
+        <li><strong>Tools execute sequentially in v0.</strong> Parallel tool dispatch is deferred — it complicates approval ordering and output interleaving.</li>
+        <li><strong>Every tool call gets a result message.</strong> Denied / errored / cancelled calls still append a result so provider message history stays valid (both APIs require a result for every tool call id).</li>
+        <li><strong>Cancellation unwinds cleanly.</strong> An <code>AbortSignal</code> threads from the TUI through the provider stream and <code>Bun.spawn</code>; on abort the loop emits a synthetic tool result ("interrupted by user") and returns.</li>
+        <li><strong>Turn cap.</strong> A max-iteration guard prevents runaway loops; hitting it emits a recoverable error.</li>
+      </ul>
+    </section>
+
+    <!-- 6 -->
+    <section id="provider">
+      <h2><span class="num">06</span> Provider Layer</h2>
+      <p>The single most load-bearing abstraction in v0. Anthropic and OpenAI differ in message shape, tool-call encoding, and streaming events — the provider normalizes all of it into our internal types.</p>
+<pre><code>interface Provider {
+  readonly id: "anthropic" | "openai";
+  stream(req: ProviderRequest): AsyncIterable&lt;ProviderEvent&gt;;
+}
+
+interface ProviderRequest {
+  system: string;
+  messages: Message[];        // internal canonical shape
+  tools: ToolSpec[];          // internal → translated per provider
+  signal: AbortSignal;
+}
+
+type ProviderEvent =
+  | { type: "text.delta"; text: string }
+  | { type: "tool_call";  call: ToolCall }
+  | { type: "done";       stopReason: StopReason; usage: Usage };</code></pre>
+      <h3>Normalization map</h3>
+      <table>
+        <thead><tr><th>Concept</th><th>Anthropic</th><th>OpenAI</th></tr></thead>
+        <tbody>
+          <tr><td>Tool schema</td><td><code>tools[].input_schema</code></td><td><code>tools[].function.parameters</code></td></tr>
+          <tr><td>Tool call</td><td><code>content[] tool_use</code> block</td><td><code>tool_calls[]</code> on the message</td></tr>
+          <tr><td>Tool result</td><td><code>tool_result</code> in a user msg</td><td><code>role:"tool"</code> message</td></tr>
+          <tr><td>Stream chunks</td><td><code>content_block_delta</code></td><td><code>choices[].delta</code></td></tr>
+          <tr><td>System prompt</td><td>top-level <code>system</code></td><td><code>role:"system"</code> message</td></tr>
+          <tr><td>Stop reason</td><td><code>stop_reason</code></td><td><code>finish_reason</code></td></tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <span class="label">Canonical message store</span>
+        The session stores messages in <em>our</em> internal format. Each provider has an adapter that serializes to its wire format on send and parses its stream back to <code>ProviderEvent</code>. We never store provider-native messages — that keeps switching providers mid-session theoretically possible and the core untangled from SDK shapes.
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="tools">
+      <h2><span class="num">07</span> Tools</h2>
+      <p>A tool is a name, a zod input schema, a permission class, and a run function. The schema is the single source of truth — it generates the JSON Schema the model sees and validates input before execution.</p>
+<pre><code>interface Tool&lt;I&gt; {
+  name: string;
+  description: string;
+  schema: ZodSchema&lt;I&gt;;
+  permission: PermissionClass;          // see §8
+  preview(input: I): string;            // human-readable approval preview
+  run(input: I, ctx: ToolContext): Promise&lt;ToolResult&gt;;
+}</code></pre>
+      <h3>v0 tool set</h3>
+      <table>
+        <thead><tr><th>Tool</th><th>Effect</th><th>Permission</th></tr></thead>
+        <tbody>
+          <tr><td><code>read</code></td><td>Read a file (with line range)</td><td>read</td></tr>
+          <tr><td><code>ls</code></td><td>List a directory</td><td>read</td></tr>
+          <tr><td><code>glob</code></td><td>Find files by pattern (<code>Bun.Glob</code>)</td><td>read</td></tr>
+          <tr><td><code>grep</code></td><td>Search file contents (ripgrep if present, else fallback)</td><td>read</td></tr>
+          <tr><td><code>write</code></td><td>Create / overwrite a file</td><td>write</td></tr>
+          <tr><td><code>edit</code></td><td>Exact-string replacement in a file</td><td>write</td></tr>
+          <tr><td><code>bash</code></td><td>Run a shell command via <code>Bun.spawn</code></td><td>exec</td></tr>
+        </tbody>
+      </table>
+      <h3>Tool conventions</h3>
+      <ul>
+        <li><strong>Absolute paths only</strong> at the tool boundary; the registry rejects paths outside the project root (configurable) as a basic guardrail.</li>
+        <li><strong>edit</strong> requires the file to have been read this session and the <code>old_string</code> to match uniquely — same contract as Claude Code, keeps edits deterministic.</li>
+        <li><strong>Results are structured</strong>: <code>{ ok, content, error?, meta? }</code>. Large outputs are truncated with a notice before being sent to the model.</li>
+        <li><strong>bash</strong> streams stdout/stderr to the TUI live and threads the <code>AbortSignal</code> for cancellation.</li>
+      </ul>
+    </section>
+
+    <!-- 8 -->
+    <section id="permissions">
+      <h2><span class="num">08</span> Permissions</h2>
+      <p>Every tool declares a permission class. Before a tool runs, the gate decides: auto-allow, prompt the user, or deny. Decisions can be remembered for the session.</p>
+      <table>
+        <thead><tr><th>Class</th><th>Default policy</th><th>Examples</th></tr></thead>
+        <tbody>
+          <tr><td><code>read</code></td><td>auto-allow</td><td>read, ls, glob, grep</td></tr>
+          <tr><td><code>write</code></td><td>prompt</td><td>write, edit</td></tr>
+          <tr><td><code>exec</code></td><td>prompt</td><td>bash</td></tr>
+        </tbody>
+      </table>
+<pre><code>type Decision =
+  | { allowed: true;  remember?: "session" }
+  | { allowed: false; reason: string };
+
+interface PermissionGate {
+  // emits approval.request to the TUI when interaction is needed
+  check(call: ToolCall): Promise&lt;Decision&gt;;
+}</code></pre>
+      <h3>Behavior</h3>
+      <ul>
+        <li><strong>Three responses</strong> in the approval modal: <em>Allow once</em>, <em>Allow for session</em>, <em>Deny</em>.</li>
+        <li><strong>Session allowlist</strong> keyed by tool name + (optionally) a normalized argument signature (e.g. allow <code>bash: npm test</code> without re-prompting).</li>
+        <li><strong>Config can pre-allow</strong> classes or specific commands (§11), mirroring the <code>fewer-permission-prompts</code> idea.</li>
+        <li><strong>Deny still returns a tool result</strong> so the model can adapt rather than the loop stalling.</li>
+      </ul>
+      <div class="note defer">
+        <span class="label">Deferred</span>
+        Fine-grained per-path write scopes, command argument parsing/sandboxing, and a "plan mode" (read-only) toggle are post-v0. v0 uses coarse classes + a project-root boundary.
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="session">
+      <h2><span class="num">09</span> Sessions &amp; Context</h2>
+      <p>A session owns the canonical message list, the assembled system prompt, usage accounting, and the session allowlist. v0 keeps the live session in memory and appends an on-disk transcript for replay/debugging.</p>
+<pre><code>class Session {
+  messages: Message[] = [];
+  systemPrompt: string;
+  usage: Usage = zeroUsage();
+  allowlist: Set&lt;string&gt;;
+
+  append(msg: Message): void;
+  appendToolResult(call: ToolCall, r: ToolResult): void;
+  // transcript: append-only JSONL written alongside each mutation
+}</code></pre>
+      <h3>System prompt assembly</h3>
+      <p>Built once per session from, in order: base harness instructions → environment block (cwd, OS, date, git status) → project <code>OM.md</code> if present → tool usage notes. Mirrors how Claude Code composes its prompt.</p>
+      <h3>Context handling in v0</h3>
+      <ul>
+        <li><strong>No compaction yet.</strong> v0 simply tracks token usage and warns near the model's context limit.</li>
+        <li><strong>Transcript log</strong>: <code>.om/transcripts/&lt;session-id&gt;.jsonl</code> — every message, tool call, and result, append-only.</li>
+        <li><strong>Resume</strong> is a stretch goal: replay the JSONL to rebuild <code>messages</code>.</li>
+      </ul>
+      <div class="note defer">
+        <span class="label">Deferred</span>
+        Summarization/compaction at context pressure, cross-session memory, and semantic file indexing are post-v0.
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="tui">
+      <h2><span class="num">10</span> TUI Layer (OpenTUI)</h2>
+      <p>The TUI consumes the core's <code>AgentEvent</code> stream and renders four regions. It owns no business logic — it renders state and forwards input + approval responses.</p>
+      <div class="diagram">┌────────────────────────────────────────────────┐
+│ <b>om-cli</b>  ~/projects/personal/om-cli   <span class="c2">anthropic ·</span>   │  header
+├────────────────────────────────────────────────┤
+│ ▸ you: refactor the parser to handle quotes      │
+│ ▸ om:  Reading the parser…                       │
+│   ┌── <span class="g">read</span> src/parser.ts ───────────────┐       │  scrollback
+│   │ 142 lines                              │       │  (+ tool cards)
+│   └────────────────────────────────────────┘       │
+│   I'll update the tokenizer. Applying edit:        │
+│   ┌── <span class="o">edit</span> src/parser.ts ───────────────┐       │
+│   │ - if (c === '"') …                     │       │
+│   │ + if (c === '"' || c === "'") …        │       │
+│   └────────────────────────────────────────┘       │
+├────────────────────────────────────────────────┤
+│ <span class="o">Allow edit to src/parser.ts?</span>  (y) once  (a) session  (n) │  approval
+├────────────────────────────────────────────────┤
+│ &gt; _                                              │  input
+└────────────────────────────────────────────────┘</div>
+      <h3>Regions</h3>
+      <ul>
+        <li><strong>Header</strong> — project path, active provider/model, token usage.</li>
+        <li><strong>Scrollback</strong> — interleaved user text, streamed assistant text, and collapsible tool cards (name, args summary, result/preview).</li>
+        <li><strong>Approval bar</strong> — appears on <code>approval.request</code>; keybound y / a / n; blocks the loop until answered.</li>
+        <li><strong>Input</strong> — multiline prompt; Enter sends, Ctrl-C interrupts the active turn, Ctrl-D exits.</li>
+      </ul>
+      <h3>Rendering rules</h3>
+      <ul>
+        <li><strong>Streaming text</strong> appends to the live assistant block on each <code>text.delta</code>.</li>
+        <li><strong>Tool cards</strong> render on <code>tool.start</code> (spinner) and update in place on <code>tool.result</code>.</li>
+        <li><strong>bash output</strong> tails live inside its card.</li>
+        <li>The TUI never mutates session state — it sends an <code>approval response</code> or <code>user message</code> back into the core.</li>
+      </ul>
+    </section>
+
+    <!-- 11 -->
+    <section id="config">
+      <h2><span class="num">11</span> Config &amp; Repo Layout</h2>
+      <h3>Config resolution</h3>
+      <p>Merge order (later wins): built-in defaults → user config <code>~/.om/config.json</code> → project <code>.om/config.json</code> → env vars / CLI flags.</p>
+<pre><code>// .om/config.json
+{
+  "provider": "anthropic",            // or "openai"
+  "model": "claude-opus-4-8",
+  "permissions": {
+    "autoAllow": ["read"],
+    "allowCommands": ["npm test", "bun test", "git status"]
+  },
+  "projectRoot": "."                  // tool path boundary
+}</code></pre>
+      <h3>API keys</h3>
+      <p><code>ANTHROPIC_API_KEY</code> / <code>OPENAI_API_KEY</code> from env. Never written to config or transcript.</p>
+      <h3>Repo layout</h3>
+<pre><code>om-cli/
+├── src/
+│   ├── core/
+│   │   ├── loop.ts            # agent loop (§5)
+│   │   ├── session.ts         # canonical messages + transcript (§9)
+│   │   └── events.ts          # AgentEvent / ProviderEvent types
+│   ├── providers/
+│   │   ├── provider.ts        # interface (§6)
+│   │   ├── anthropic.ts
+│   │   └── openai.ts
+│   ├── tools/
+│   │   ├── registry.ts        # specs() + run() + path guard
+│   │   ├── fs.ts              # read/write/edit/ls/glob/grep
+│   │   └── bash.ts
+│   ├── permission/gate.ts     # §8
+│   ├── tui/                   # OpenTUI components (§10)
+│   ├── config.ts              # §11
+│   └── main.ts                # entry: wire core ⇄ tui
+├── .om/                       # transcripts, project config
+└── spec-v0.html</code></pre>
+    </section>
+
+    <!-- 12 -->
+    <section id="milestones">
+      <h2><span class="num">12</span> Build Milestones</h2>
+      <table>
+        <thead><tr><th>#</th><th>Milestone</th><th>Proves</th></tr></thead>
+        <tbody>
+          <tr><td>M0</td><td>Bun + TS skeleton, config loader, env keys</td><td>Process boots, reads config.</td></tr>
+          <tr><td>M1</td><td>Anthropic provider: single streamed text turn, no tools (CLI stdout)</td><td>Provider streaming + canonical messages.</td></tr>
+          <tr><td>M2</td><td>Tool registry + <code>read</code>/<code>ls</code>/<code>glob</code>/<code>grep</code>; loop executes tool calls</td><td>The agent loop (§5) with read-only tools.</td></tr>
+          <tr><td>M3</td><td>Permission gate + <code>write</code>/<code>edit</code>/<code>bash</code></td><td>Approvals + mutating effects end to end.</td></tr>
+          <tr><td>M4</td><td>OpenAI provider behind the same interface</td><td>Provider abstraction holds across two APIs.</td></tr>
+          <tr><td>M5</td><td>OpenTUI shell: scrollback, tool cards, approval bar, input, Ctrl-C</td><td>The v0 definition of done (§2).</td></tr>
+          <tr><td>M6</td><td>Transcript JSONL + usage/limit warning</td><td>Debuggability + context awareness.</td></tr>
+        </tbody>
+      </table>
+      <div class="note scope">
+        <span class="label">Sequencing note</span>
+        Build M1–M4 against a plain stdout front end first, then swap in the TUI at M5. Keeping the core headless until the loop is proven avoids debugging async streaming and terminal rendering at the same time.
+      </div>
+    </section>
+
+    <!-- 13 -->
+    <section id="open">
+      <h2><span class="num">13</span> Open Questions</h2>
+      <ul>
+        <li><strong>Schema lib:</strong> <code>zod</code> (familiar, heavier) vs <code>valibot</code> (smaller, tree-shakeable) — does Bun startup cost matter enough to choose valibot?</li>
+        <li><strong>OpenAI API surface:</strong> Responses API vs Chat Completions for tool calling — which maps more cleanly onto the canonical event stream?</li>
+        <li><strong>Parallel tool calls:</strong> both providers can request several at once. v0 serializes them — is the approval-ordering cost of parallelism worth deferring, or handle it at M3?</li>
+        <li><strong>edit precision:</strong> exact-string match vs line-range vs unified-diff application — which gives the model the best success rate without a diff UI?</li>
+        <li><strong>Path guard strictness:</strong> hard project-root jail vs allow-with-prompt for outside paths.</li>
+        <li><strong>TUI state model:</strong> does OpenTUI's reactivity handle a long, mutating scrollback efficiently, or do we need windowed rendering early?</li>
+      </ul>
+    </section>
+
+    <footer>
+      om-cli · spec v0 · drafted 2026-05-30 · design reference, expect churn
+    </footer>
+  </main>
+</div>
+</body>
+</html>
