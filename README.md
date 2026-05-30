@@ -4,9 +4,10 @@ A terminal-native **agentic coding harness** — in the spirit of Claude Code / 
 LLM drives a loop, calls tools to read and modify the local filesystem and run commands,
 and a TUI renders the conversation, tool activity, and approvals.
 
-> **Status: work in progress (v0 in active development).** The core (agent loop, providers,
-> tools, permissions, sessions) is implemented and tested; the TUI and entry-point wiring are
-> next. See [Status](#status) below for the live picture.
+> **Status: v0 feature-complete.** Core (agent loop, providers, tools, permissions, sessions),
+> the OpenTUI + headless frontends, and the entry point are all implemented and tested
+> (263 tests, `tsc` clean). What's left is hands-on TTY verification of the live TUI. See
+> [Status](#status) below.
 
 **Stack:** [Bun](https://bun.sh) · TypeScript (strict) · [OpenTUI](https://github.com/sst/opentui) ·
 [zod](https://zod.dev) 4 · Anthropic Messages API + OpenAI Responses API.
@@ -74,7 +75,9 @@ cp .env.example .env        # then fill in ANTHROPIC_API_KEY / OPENAI_API_KEY
 
 bun run typecheck           # tsc --noEmit
 bun test                    # bun:test suite
-bun run om                  # launch the harness  (entry point: in progress)
+bun run om                  # launch the harness (TUI if a TTY, else stdout)
+bun run om --headless       # force the plain stdout frontend
+bun run om --help           # flags + env vars
 ```
 
 Configuration is merged from built-in defaults → `~/.om/config.json` → `./.om/config.json`
@@ -129,8 +132,11 @@ v0 milestones (see [`spec/v0.html` §12](./spec/v0.html)):
 - [x] Permission gate (auto-allow / prompt / session-allowlist)
 - [x] Anthropic (Messages) + OpenAI (Responses) provider adapters
 - [x] Agent loop (streaming, sequential tools, abort, turn cap)
-- [x] `tsc --noEmit` clean · `bun test` green (216 tests)
-- [ ] OpenTUI frontend + `main.ts` wiring  ← *next*
+- [x] OpenTUI frontend + headless stdout fallback + `main.ts` wiring
+- [x] `tsc --noEmit` clean · `bun test` green (263 tests)
+
+**v0 is feature-complete.** Remaining: manual TTY verification of the OpenTUI frontend
+(streaming, tool cards, approval bar, Ctrl-C abort) in a real terminal — can't run in CI.
 
 ## License
 
