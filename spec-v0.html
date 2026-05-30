@@ -120,7 +120,7 @@
       <li><a href="#tui">TUI Layer</a></li>
       <li><a href="#config">Config & Layout</a></li>
       <li><a href="#milestones">Milestones</a></li>
-      <li><a href="#open">Open Questions</a></li>
+      <li><a href="#open">Decisions &amp; Open Qs</a></li>
     </ol>
   </nav>
 
@@ -202,9 +202,9 @@
           <tr><td>Runtime</td><td><code>Bun</code></td><td>Fast startup, native TS, built-in fetch / spawn / file APIs — no build step.</td></tr>
           <tr><td>Language</td><td><code>TypeScript</code> (strict)</td><td>Schema-typed tools and provider contracts; discriminated unions for events.</td></tr>
           <tr><td>TUI</td><td><code>OpenTUI</code></td><td>Component-based terminal rendering; reactive scrollback + input.</td></tr>
-          <tr><td>Schema</td><td><code>zod</code> (or <code>@valibot</code>)</td><td>Single source for tool input schemas → JSON Schema for the model, runtime validation for execution.</td></tr>
+          <tr><td>Schema</td><td><code>zod</code></td><td>Single source for tool input schemas → JSON Schema (via <code>z.toJSONSchema</code>) for the model, runtime validation for execution.</td></tr>
           <tr><td>Anthropic</td><td><code>@anthropic-ai/sdk</code></td><td>Messages API with streaming tool use.</td></tr>
-          <tr><td>OpenAI</td><td><code>openai</code></td><td>Responses / Chat Completions with tool calling.</td></tr>
+          <tr><td>OpenAI</td><td><code>openai</code></td><td><strong>Responses API</strong> with tool calling (chosen over Chat Completions — maps more cleanly onto the streaming tool-call event model).</td></tr>
         </tbody>
       </table>
       <div class="note">
@@ -316,14 +316,15 @@ type ProviderEvent =
   | { type: "done";       stopReason: StopReason; usage: Usage };</code></pre>
       <h3>Normalization map</h3>
       <table>
-        <thead><tr><th>Concept</th><th>Anthropic</th><th>OpenAI</th></tr></thead>
+        <thead><tr><th>Concept</th><th>Anthropic (Messages)</th><th>OpenAI (Responses)</th></tr></thead>
         <tbody>
-          <tr><td>Tool schema</td><td><code>tools[].input_schema</code></td><td><code>tools[].function.parameters</code></td></tr>
-          <tr><td>Tool call</td><td><code>content[] tool_use</code> block</td><td><code>tool_calls[]</code> on the message</td></tr>
-          <tr><td>Tool result</td><td><code>tool_result</code> in a user msg</td><td><code>role:"tool"</code> message</td></tr>
-          <tr><td>Stream chunks</td><td><code>content_block_delta</code></td><td><code>choices[].delta</code></td></tr>
-          <tr><td>System prompt</td><td>top-level <code>system</code></td><td><code>role:"system"</code> message</td></tr>
-          <tr><td>Stop reason</td><td><code>stop_reason</code></td><td><code>finish_reason</code></td></tr>
+          <tr><td>Tool schema</td><td><code>tools[].input_schema</code></td><td><code>tools[]</code> with <code>type:"function"</code> + <code>parameters</code></td></tr>
+          <tr><td>Tool call</td><td><code>content[] tool_use</code> block</td><td><code>function_call</code> output item</td></tr>
+          <tr><td>Tool result</td><td><code>tool_result</code> in a user msg</td><td><code>function_call_output</code> input item</td></tr>
+          <tr><td>Stream chunks</td><td><code>content_block_delta</code></td><td><code>response.output_text.delta</code> / <code>…function_call_arguments.delta</code></td></tr>
+          <tr><td>System prompt</td><td>top-level <code>system</code></td><td><code>instructions</code> field</td></tr>
+          <tr><td>Stop reason</td><td><code>stop_reason</code></td><td><code>response.completed</code> status</td></tr>
+          <tr><td>Conversation state</td><td>full <code>messages[]</code> resent</td><td>full <code>input[]</code> resent (<code>store:false</code>; we own state)</td></tr>
         </tbody>
       </table>
       <div class="note">
@@ -353,17 +354,21 @@ type ProviderEvent =
           <tr><td><code>glob</code></td><td>Find files by pattern (<code>Bun.Glob</code>)</td><td>read</td></tr>
           <tr><td><code>grep</code></td><td>Search file contents (ripgrep if present, else fallback)</td><td>read</td></tr>
           <tr><td><code>write</code></td><td>Create / overwrite a file</td><td>write</td></tr>
-          <tr><td><code>edit</code></td><td>Exact-string replacement in a file</td><td>write</td></tr>
+          <tr><td><code>edit</code></td><td>Exact-string replacement (<code>old_string</code> → <code>new_string</code>)</td><td>write</td></tr>
           <tr><td><code>bash</code></td><td>Run a shell command via <code>Bun.spawn</code></td><td>exec</td></tr>
         </tbody>
       </table>
       <h3>Tool conventions</h3>
       <ul>
-        <li><strong>Absolute paths only</strong> at the tool boundary; the registry rejects paths outside the project root (configurable) as a basic guardrail.</li>
-        <li><strong>edit</strong> requires the file to have been read this session and the <code>old_string</code> to match uniquely — same contract as Claude Code, keeps edits deterministic.</li>
+        <li><strong>Absolute paths only</strong> at the tool boundary. v0 does <em>not</em> enforce a project-root jail — paths are taken as given (an out-of-root write still goes through the normal write/exec approval, so the user is the guard).</li>
+        <li><strong>edit</strong> uses <strong>exact-string replacement</strong>: the file must have been read this session and <code>old_string</code> must match <em>uniquely</em> — otherwise the tool errors and asks the model to add surrounding context. Deterministic, and its failure mode is a retry, not silent corruption. Full-file creation/rewrite goes through <code>write</code>.</li>
         <li><strong>Results are structured</strong>: <code>{ ok, content, error?, meta? }</code>. Large outputs are truncated with a notice before being sent to the model.</li>
         <li><strong>bash</strong> streams stdout/stderr to the TUI live and threads the <code>AbortSignal</code> for cancellation.</li>
       </ul>
+      <div class="note defer">
+        <span class="label">Edit strategy — post-v0</span>
+        v0 commits to exact-string replacement for its determinism and zero applier complexity. The longer-term path is <strong>unified-diff / patch application</strong>, adopted alongside the deferred diff review UI — the diff format and the review surface are the same artifact, so they should land together rather than building a fuzzy patch applier before the loop is even proven. Line-range editing is rejected outright (line-number drift across multi-edit turns risks silent corruption).
+      </div>
     </section>
 
     <!-- 8 -->
@@ -395,7 +400,7 @@ interface PermissionGate {
       </ul>
       <div class="note defer">
         <span class="label">Deferred</span>
-        Fine-grained per-path write scopes, command argument parsing/sandboxing, and a "plan mode" (read-only) toggle are post-v0. v0 uses coarse classes + a project-root boundary.
+        Fine-grained per-path write scopes, command argument parsing/sandboxing, and a "plan mode" (read-only) toggle are post-v0. v0 relies on coarse classes (read / write / exec) plus the approval prompt — there is no project-root path jail; the user approving a write/exec is the boundary.
       </div>
     </section>
 
@@ -477,8 +482,7 @@ interface PermissionGate {
   "permissions": {
     "autoAllow": ["read"],
     "allowCommands": ["npm test", "bun test", "git status"]
-  },
-  "projectRoot": "."                  // tool path boundary
+  }
 }</code></pre>
       <h3>API keys</h3>
       <p><code>ANTHROPIC_API_KEY</code> / <code>OPENAI_API_KEY</code> from env. Never written to config or transcript.</p>
@@ -494,7 +498,7 @@ interface PermissionGate {
 │   │   ├── anthropic.ts
 │   │   └── openai.ts
 │   ├── tools/
-│   │   ├── registry.ts        # specs() + run() + path guard
+│   │   ├── registry.ts        # specs() + run()
 │   │   ├── fs.ts              # read/write/edit/ls/glob/grep
 │   │   └── bash.ts
 │   ├── permission/gate.ts     # §8
@@ -515,7 +519,7 @@ interface PermissionGate {
           <tr><td>M1</td><td>Anthropic provider: single streamed text turn, no tools (CLI stdout)</td><td>Provider streaming + canonical messages.</td></tr>
           <tr><td>M2</td><td>Tool registry + <code>read</code>/<code>ls</code>/<code>glob</code>/<code>grep</code>; loop executes tool calls</td><td>The agent loop (§5) with read-only tools.</td></tr>
           <tr><td>M3</td><td>Permission gate + <code>write</code>/<code>edit</code>/<code>bash</code></td><td>Approvals + mutating effects end to end.</td></tr>
-          <tr><td>M4</td><td>OpenAI provider behind the same interface</td><td>Provider abstraction holds across two APIs.</td></tr>
+          <tr><td>M4</td><td>OpenAI provider (Responses API) behind the same interface</td><td>Provider abstraction holds across two APIs.</td></tr>
           <tr><td>M5</td><td>OpenTUI shell: scrollback, tool cards, approval bar, input, Ctrl-C</td><td>The v0 definition of done (§2).</td></tr>
           <tr><td>M6</td><td>Transcript JSONL + usage/limit warning</td><td>Debuggability + context awareness.</td></tr>
         </tbody>
@@ -528,14 +532,23 @@ interface PermissionGate {
 
     <!-- 13 -->
     <section id="open">
-      <h2><span class="num">13</span> Open Questions</h2>
+      <h2><span class="num">13</span> Decisions &amp; Open Questions</h2>
+      <h3>Resolved</h3>
+      <table>
+        <thead><tr><th>Question</th><th>Decision</th></tr></thead>
+        <tbody>
+          <tr><td>Schema lib</td><td><strong>zod</strong> — familiar; <code>z.toJSONSchema</code> covers the model-facing schema need. Bun startup cost deemed acceptable.</td></tr>
+          <tr><td>OpenAI API surface</td><td><strong>Responses API</strong> — maps more cleanly onto the streaming tool-call event model than Chat Completions.</td></tr>
+          <tr><td>Parallel tool calls</td><td><strong>Deferred.</strong> v0 serializes tool execution; revisit after the loop + approval ordering are proven.</td></tr>
+          <tr><td>Edit precision</td><td><strong>Exact-string replacement (+ <code>write</code>)</strong> in v0. Unified-diff is the post-v0 path, landing with the diff review UI. Line-range rejected (drift risk). See §7.</td></tr>
+          <tr><td>Path guard</td><td><strong>No path jail.</strong> Coarse permission classes + the approval prompt are the boundary. See §8.</td></tr>
+          <tr><td>Front end</td><td><strong>OpenTUI</strong> confirmed (§10), swapped in at M5 over the headless core.</td></tr>
+        </tbody>
+      </table>
+      <h3>Still open</h3>
       <ul>
-        <li><strong>Schema lib:</strong> <code>zod</code> (familiar, heavier) vs <code>valibot</code> (smaller, tree-shakeable) — does Bun startup cost matter enough to choose valibot?</li>
-        <li><strong>OpenAI API surface:</strong> Responses API vs Chat Completions for tool calling — which maps more cleanly onto the canonical event stream?</li>
-        <li><strong>Parallel tool calls:</strong> both providers can request several at once. v0 serializes them — is the approval-ordering cost of parallelism worth deferring, or handle it at M3?</li>
-        <li><strong>edit precision:</strong> exact-string match vs line-range vs unified-diff application — which gives the model the best success rate without a diff UI?</li>
-        <li><strong>Path guard strictness:</strong> hard project-root jail vs allow-with-prompt for outside paths.</li>
-        <li><strong>TUI state model:</strong> does OpenTUI's reactivity handle a long, mutating scrollback efficiently, or do we need windowed rendering early?</li>
+        <li><strong>TUI state model:</strong> does OpenTUI's reactivity handle a long, mutating scrollback efficiently, or do we need windowed rendering early? (Validate at M5.)</li>
+        <li><strong>Responses statefulness:</strong> use <code>store:false</code> and own conversation state ourselves (keeps the canonical store authoritative and providers swappable) vs leaning on OpenAI's <code>previous_response_id</code>. Leaning toward owning state — confirm at M4.</li>
       </ul>
     </section>
 
