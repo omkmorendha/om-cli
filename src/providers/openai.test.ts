@@ -238,7 +238,7 @@ describe("toResponsesTools", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("toUsage", () => {
-  test("extracts input/output tokens", () => {
+  test("extracts input/output tokens and surfaces cached tokens", () => {
     expect(
       toUsage({
         input_tokens: 120,
@@ -247,7 +247,17 @@ describe("toUsage", () => {
         input_tokens_details: { cached_tokens: 30 },
         output_tokens_details: { reasoning_tokens: 0 },
       } as never),
-    ).toEqual({ inputTokens: 120, outputTokens: 45 });
+    ).toEqual({ inputTokens: 120, outputTokens: 45, cacheReadTokens: 30 });
+  });
+
+  test("omits cacheReadTokens when cached_tokens is zero", () => {
+    expect(
+      toUsage({
+        input_tokens: 10,
+        output_tokens: 3,
+        input_tokens_details: { cached_tokens: 0 },
+      } as never),
+    ).toEqual({ inputTokens: 10, outputTokens: 3 });
   });
 
   test("returns zero usage for null/undefined", () => {

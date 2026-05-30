@@ -159,8 +159,8 @@ interface ToolCall {
   | "end"          // model finished its turn, no tool requested
   | "tool_use"     // model is requesting one or more tools
   | "max_tokens"   // output length cap hit
-  | "stop_seq"     // a stop sequence matched
-  | "aborted";     // AbortSignal fired mid-stream (§7)
+  | "interrupted"  // AbortSignal fired mid-stream (§7)
+  | "error";       // provider/stream error
 
 interface Usage { inputTokens: number; outputTokens: number;
                   cacheReadTokens?: number; cacheWriteTokens?: number; }</code></pre>
@@ -331,7 +331,8 @@ function mapAnthropicStop(r: string | null): StopReason {
   switch (r) {
     case "tool_use":   return "tool_use";
     case "max_tokens": return "max_tokens";
-    case "stop_sequence": return "stop_seq";
+    // No canonical "stop_seq": a matched stop sequence is a normal turn end.
+    case "stop_sequence":
     case "end_turn": default: return "end";
   }
 }</code></pre>
@@ -503,8 +504,9 @@ function buildOpenAIRequest(req: ProviderRequest, model: string) {
           <tr><td><code>end</code></td><td><code>end_turn</code></td><td><code>completed</code> (no function_call)</td></tr>
           <tr><td><code>tool_use</code></td><td><code>tool_use</code></td><td><code>completed</code> with a <code>function_call</code> item present</td></tr>
           <tr><td><code>max_tokens</code></td><td><code>max_tokens</code></td><td><code>incomplete</code> · reason <code>max_output_tokens</code></td></tr>
-          <tr><td><code>stop_seq</code></td><td><code>stop_sequence</code></td><td>(no direct equivalent — maps to <code>end</code>)</td></tr>
-          <tr><td><code>aborted</code></td><td colspan="2">synthesized by the adapter on <code>AbortSignal</code> (§7), not a wire value</td></tr>
+          <tr><td><code>end</code></td><td><code>stop_sequence</code></td><td>(no direct equivalent — maps to <code>end</code>)</td></tr>
+          <tr><td><code>interrupted</code></td><td colspan="2">synthesized by the adapter on <code>AbortSignal</code> (§7), not a wire value</td></tr>
+          <tr><td><code>error</code></td><td colspan="2">set on a stream/provider error before bubbling to the loop's error path</td></tr>
         </tbody>
       </table>
       <div class="note">
@@ -529,7 +531,7 @@ const stream = await client.responses.create(body, { signal: req.signal }); // o
 } catch (err) {
   if (req.signal.aborted || isAbortError(err)) {
     // clean unwind: report a terminal done, not an error
-    yield { type: "done", stopReason: "aborted", usage };
+    yield { type: "done", stopReason: "interrupted", usage };
     return;
   }
   throw err;                  // genuine failure — bubble to the loop's error path
@@ -539,7 +541,7 @@ const stream = await client.responses.create(body, { signal: req.signal }); // o
       <table>
         <thead><tr><th>Condition</th><th>Adapter behavior</th><th>Surfaces as</th></tr></thead>
         <tbody>
-          <tr><td>AbortSignal fired</td><td>catch, emit <code>done{stopReason:"aborted"}</code></td><td>clean turn end, not an error</td></tr>
+          <tr><td>AbortSignal fired</td><td>catch, emit <code>done{stopReason:"interrupted"}</code></td><td>clean turn end, not an error</td></tr>
           <tr><td>Auth / 401 (bad key)</td><td>throw — non-retryable</td><td><code>AgentEvent error{fatal:true}</code></td></tr>
           <tr><td>Rate limit / 429</td><td>SDK retries w/ backoff; if exhausted, throw</td><td><code>error{fatal:false}</code> — retryable</td></tr>
           <tr><td>5xx / network</td><td>SDK retry; if exhausted, throw</td><td><code>error{fatal:false}</code></td></tr>

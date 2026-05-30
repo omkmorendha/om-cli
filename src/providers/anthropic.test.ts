@@ -217,6 +217,24 @@ describe("mapAnthropicUsage", () => {
     expect(mapAnthropicUsage(prev, null)).toEqual(prev);
     expect(mapAnthropicUsage(prev, undefined)).toEqual(prev);
   });
+
+  test("surfaces cache read/creation tokens when reported", () => {
+    const out = mapAnthropicUsage(
+      { inputTokens: 0, outputTokens: 0 },
+      {
+        input_tokens: 50,
+        output_tokens: 10,
+        cache_read_input_tokens: 200,
+        cache_creation_input_tokens: 64,
+      },
+    );
+    expect(out).toEqual({
+      inputTokens: 50,
+      outputTokens: 10,
+      cacheReadTokens: 200,
+      cacheWriteTokens: 64,
+    });
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

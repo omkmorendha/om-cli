@@ -11,7 +11,8 @@
  * core/types.ts) to conform to the binding contract:
  *   - StopReason has no "aborted"/"stop_seq"; an AbortSignal maps to "interrupted",
  *     and there is no stop-sequence concept on the Responses side anyway.
- *   - Usage is the lean { inputTokens, outputTokens } — no cache token fields.
+ *   - Usage is { inputTokens, outputTokens } plus optional cache token fields
+ *     when the Responses usage object reports cached_tokens.
  *
  * The serialize (`toResponsesInput` / `toResponsesTools`) and parse
  * (`parseResponsesEvent` via `ResponsesParser`) halves are pure, exported, and
@@ -116,12 +117,16 @@ export function toResponsesTools(tools: ToolSpec[]): FunctionTool[] {
   }));
 }
 
-/** Map a Responses usage object onto the canonical lean Usage shape. */
+/** Map a Responses usage object onto the canonical Usage shape. */
 export function toUsage(u: ResponseUsage | null | undefined): Usage {
   if (!u) return zeroUsage();
+  // Treat a zero cached_tokens as "no cache activity" and omit the field, so a
+  // cache-free turn yields a clean { inputTokens, outputTokens } Usage.
+  const cacheRead = u.input_tokens_details?.cached_tokens;
   return {
     inputTokens: u.input_tokens ?? 0,
     outputTokens: u.output_tokens ?? 0,
+    ...(cacheRead ? { cacheReadTokens: cacheRead } : {}),
   };
 }
 

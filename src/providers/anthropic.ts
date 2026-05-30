@@ -13,8 +13,8 @@
  * tested against synthetic SDK-shaped objects with no network access. Only
  * {@link AnthropicProvider.stream} touches the SDK.
  *
- * Conforms to src/core/types.ts: the canonical {@link Usage} carries only
- * `inputTokens`/`outputTokens` (no cache fields) and {@link StopReason} has no
+ * Conforms to src/core/types.ts: the canonical {@link Usage} carries
+ * `inputTokens`/`outputTokens` plus optional cache token fields, and {@link StopReason} has no
  * `stop_seq`/`aborted` members — Anthropic's `stop_sequence` maps to `"end"`,
  * and a fired AbortSignal surfaces as `done{stopReason:"interrupted"}`.
  */
@@ -94,6 +94,8 @@ export type AnthropicStreamEventLike =
 export interface AnthropicUsageLike {
   input_tokens?: number | null;
   output_tokens?: number | null;
+  cache_read_input_tokens?: number | null;
+  cache_creation_input_tokens?: number | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -217,9 +219,13 @@ export function mapAnthropicUsage(
   u: AnthropicUsageLike | null | undefined,
 ): Usage {
   if (!u) return prev;
+  const cacheRead = u.cache_read_input_tokens ?? prev.cacheReadTokens;
+  const cacheWrite = u.cache_creation_input_tokens ?? prev.cacheWriteTokens;
   return {
     inputTokens: u.input_tokens ?? prev.inputTokens,
     outputTokens: u.output_tokens ?? prev.outputTokens,
+    ...(cacheRead != null ? { cacheReadTokens: cacheRead } : {}),
+    ...(cacheWrite != null ? { cacheWriteTokens: cacheWrite } : {}),
   };
 }
 
