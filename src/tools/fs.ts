@@ -100,6 +100,11 @@ export const readTool: Tool<ReadInput> = {
     const log = ctx.log.child("read");
     const p = abs(input.path, ctx.cwd);
 
+    // Honor abort up front so an already-cancelled turn returns promptly
+    // without touching the disk (spec tools.html §09). Use the same "aborted"
+    // wording bash uses for the same condition.
+    if (ctx.signal.aborted) return ToolResult.error("aborted");
+
     let st;
     try {
       st = await stat(p);
@@ -475,14 +480,24 @@ function pathFromRg(p: { text?: string; bytes?: string } | string, root: string)
   return isAbsolute(raw) ? raw : resolve(root, raw);
 }
 
-async function grepRipgrep(input: GrepInput, searchPath: string): Promise<GrepBackendResult> {
+async function grepRipgrep(
+  input: GrepInput,
+  searchPath: string,
+  signal?: AbortSignal,
+): Promise<GrepBackendResult> {
   const args = ["rg", "--json"];
   if (input.ignoreCase) args.push("-i");
   if (input.context > 0) args.push("-C", String(input.context));
   if (input.glob) args.push("-g", input.glob);
   args.push("--", input.pattern, searchPath);
 
-  const proc = Bun.spawn(args, { stdout: "pipe", stderr: "pipe" });
+  // Pass the turn's signal so an abort (Ctrl-C) kills the rg process promptly
+  // rather than letting it run to completion (spec tools.html §09).
+  const proc = Bun.spawn(args, {
+    stdout: "pipe",
+    stderr: "pipe",
+    ...(signal ? { signal } : {}),
+  });
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
@@ -496,7 +511,11 @@ async function grepRipgrep(input: GrepInput, searchPath: string): Promise<GrepBa
   return parseRgJson(stdout, searchPath);
 }
 
-async function grepFallback(input: GrepInput, searchPath: string): Promise<GrepBackendResult> {
+async function grepFallback(
+  input: GrepInput,
+  searchPath: string,
+  signal?: AbortSignal,
+): Promise<GrepBackendResult> {
   // Compile up front so an invalid regex surfaces as ok:false before scanning.
   const re = new RegExp(input.pattern, input.ignoreCase ? "i" : "");
 
@@ -521,6 +540,12 @@ async function grepFallback(input: GrepInput, searchPath: string): Promise<GrepB
   const ctxN = input.context;
 
   outer: for (const file of files) {
+    // Honor abort between files (the natural "chunk" boundary) so a grep over a
+    // large tree unwinds promptly on Ctrl-C (spec tools.html §09).
+    if (signal?.aborted) {
+      truncated = true;
+      break outer;
+    }
     let bytes: Uint8Array;
     try {
       bytes = new Uint8Array(await Bun.file(file).arrayBuffer());
@@ -587,11 +612,11 @@ export const grepTool: Tool<GrepInput> = {
     const useRg = await hasRipgrep();
     try {
       if (useRg) {
-        const r = await grepRipgrep(input, searchPath);
+        const r = await grepRipgrep(input, searchPath, ctx.signal);
         log.debug("grep", { backend: "ripgrep", matches: r.hits.filter((h) => h.isMatch).length });
         return renderGrep(input, "ripgrep", r);
       }
-      const r = await grepFallback(input, searchPath);
+      const r = await grepFallback(input, searchPath, ctx.signal);
       log.debug("grep", { backend: "fallback", matches: r.hits.filter((h) => h.isMatch).length });
       return renderGrep(input, "fallback", r);
     } catch (err) {

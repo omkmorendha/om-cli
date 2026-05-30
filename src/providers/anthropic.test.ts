@@ -425,6 +425,9 @@ describe("AnthropicProvider.stream", () => {
     const done = out[out.length - 1];
     expect(done?.type).toBe("done");
     expect((done as { stopReason: string }).stopReason).toBe("interrupted");
+    // The input tokens that arrived on message_start before the abort are
+    // preserved on the interrupted done, not reset to zero.
+    expect((done as { usage: { inputTokens: number } }).usage.inputTokens).toBe(2);
   });
 
   test("rethrows non-abort errors for the loop to classify", async () => {

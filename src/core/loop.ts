@@ -171,15 +171,21 @@ export async function* runTurn(opts: RunTurnOptions): AsyncGenerator<AgentEvent>
     }
 
     // ── Execute each requested tool call, sequentially (v0). ───────────────
-    for (const call of toolCalls) {
+    for (let i = 0; i < toolCalls.length; i++) {
+      const call = toolCalls[i]!;
       yield { type: "tool.start", id: call.id, name: call.name, input: call.input };
 
       // If we were aborted before/while reaching this call, synthesize an
-      // interrupted result for it, append it, and unwind the whole turn.
+      // interrupted result for it AND for every remaining call, then unwind.
+      // The assistant message already declared all of these tool_calls; both
+      // provider APIs require a result for every tool-call id, so we must not
+      // leave the trailing calls unanswered (that corrupts the next round-trip
+      // after a resume). tool.start for this call was already emitted above.
       if (signal.aborted) {
         const result = ToolResultHelpers.interrupted(call);
         yield { type: "tool.result", id: call.id, output: result };
         session.appendToolResult(call, result);
+        yield* interruptRemaining(toolCalls, i + 1, session);
         yield { type: "turn.done", stopReason: "interrupted", usage: session.usage };
         return;
       }
@@ -206,9 +212,11 @@ export async function* runTurn(opts: RunTurnOptions): AsyncGenerator<AgentEvent>
       session.appendToolResult(call, result);
 
       // If the tool run itself was interrupted (e.g. Ctrl-C during a bash
-      // spawn flipped the signal), unwind immediately rather than starting the
-      // next call or another provider round-trip.
+      // spawn flipped the signal), finalize the remaining calls with
+      // interrupted results and unwind rather than starting the next call or
+      // another provider round-trip.
       if (signal.aborted) {
+        yield* interruptRemaining(toolCalls, i + 1, session);
         yield { type: "turn.done", stopReason: "interrupted", usage: session.usage };
         return;
       }
@@ -216,6 +224,27 @@ export async function* runTurn(opts: RunTurnOptions): AsyncGenerator<AgentEvent>
 
     // Loop continues: the tool results are now in the session and become
     // context for the next provider round-trip.
+  }
+}
+
+/**
+ * Synthesize interrupted results for `calls[from..]`, emitting a tool.start +
+ * tool.result pair for each (none of them were started yet) and appending the
+ * result to the session. Used to finalize the trailing tool calls of an
+ * assistant message when a turn is aborted partway through, so every declared
+ * tool-call id gets a matching result and provider history stays well-formed.
+ */
+function* interruptRemaining(
+  calls: ToolCall[],
+  from: number,
+  session: Session,
+): Generator<AgentEvent> {
+  for (let j = from; j < calls.length; j++) {
+    const call = calls[j]!;
+    const result = ToolResultHelpers.interrupted(call);
+    yield { type: "tool.start", id: call.id, name: call.name, input: call.input };
+    yield { type: "tool.result", id: call.id, output: result };
+    session.appendToolResult(call, result);
   }
 }
 

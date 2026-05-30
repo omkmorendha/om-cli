@@ -55,6 +55,22 @@ describe("logger", () => {
     expect(rec.data.path).toBe("/ok");
   });
 
+  test("redacts secret-looking keys nested inside objects and arrays", async () => {
+    const dir = tmpDir();
+    const log = createLogger({ sessionId: "s3n", dir, level: "silent" });
+    log.info("req", {
+      headers: { authorization: "Bearer sk-secret", "x-trace": "ok" },
+      items: [{ password: "p" }, { name: "fine" }],
+    });
+    await log.close();
+
+    const rec = JSON.parse(readFileSync(join(dir, "s3n.jsonl"), "utf8").trim());
+    expect(rec.data.headers.authorization).toBe("«redacted»");
+    expect(rec.data.headers["x-trace"]).toBe("ok");
+    expect(rec.data.items[0].password).toBe("«redacted»");
+    expect(rec.data.items[1].name).toBe("fine");
+  });
+
   test("console sink respects the level threshold", async () => {
     const dir = tmpDir();
     const lines: string[] = [];

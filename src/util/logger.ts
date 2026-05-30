@@ -62,19 +62,38 @@ function envLevel(): LogLevel {
 
 /** Redact obvious secrets from log data so API keys never hit disk (§11). */
 const SECRET_KEY_RE = /(api[_-]?key|authorization|token|secret|password)/i;
+
+/** True for a plain object/array we should recurse into (not Error, Date, etc). */
+function isPlainContainer(v: unknown): v is Record<string, unknown> | unknown[] {
+  if (Array.isArray(v)) return true;
+  if (v === null || typeof v !== "object") return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Recursively redact secret-looking keys at any depth. A secret key blanks its
+ * whole value (we never want a key/token leaking even nested under `headers`).
+ * Bounded by depth and a seen-set so a deep or circular structure can't hang or
+ * stack-overflow the logger.
+ */
+function redactValue(value: unknown, depth: number, seen: WeakSet<object>): unknown {
+  if (depth > 6 || !isPlainContainer(value)) return value;
+  if (seen.has(value)) return value;
+  seen.add(value);
+  if (Array.isArray(value)) {
+    return value.map((v) => redactValue(v, depth + 1, seen));
+  }
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) {
+    out[k] = SECRET_KEY_RE.test(k) ? "«redacted»" : redactValue(v, depth + 1, seen);
+  }
+  return out;
+}
+
 function redact(data: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
   if (!data) return undefined;
-  let touched = false;
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(data)) {
-    if (SECRET_KEY_RE.test(k)) {
-      out[k] = "«redacted»";
-      touched = true;
-    } else {
-      out[k] = v;
-    }
-  }
-  return touched ? out : data;
+  return redactValue(data, 0, new WeakSet()) as Record<string, unknown>;
 }
 
 /**

@@ -382,24 +382,37 @@ async function makeFrontend(
   useTui: boolean,
   chrome: FrontendChrome,
   log: Logger,
-): Promise<Frontend> {
+): Promise<{ frontend: Frontend; tui: boolean }> {
   if (useTui) {
     try {
       const mod = (await import("./tui/tui.ts")) as {
-        TuiFrontend: new (opts: { cwd: string; providerLabel: string; log: Logger }) => Frontend;
+        TuiFrontend: new (opts?: {
+          cwd?: string;
+          providerLabel?: string;
+          log?: Logger;
+        }) => Frontend;
       };
-      return new mod.TuiFrontend({
-        cwd: chrome.cwd,
-        providerLabel: chrome.providerLabel,
-        log,
-      });
+      // Pass cwd + provider/model so the header reflects the live session
+      // instead of defaulting to an empty label (spec tui §03). Report
+      // `tui: true` so the caller knows the TUI actually mounted.
+      return {
+        frontend: new mod.TuiFrontend({
+          cwd: chrome.cwd,
+          providerLabel: chrome.providerLabel,
+          log,
+        }),
+        tui: true,
+      };
     } catch (err) {
       log.warn("TUI frontend unavailable; falling back to stdout", {
         error: err instanceof Error ? err.message : String(err),
       });
     }
   }
-  return new StdoutFrontend();
+  // Either headless was requested, or the TUI import failed and we degraded.
+  // Report `tui: false` so the caller drives the headless stdin input loop —
+  // otherwise the StdoutFrontend would mount with no input source.
+  return { frontend: new StdoutFrontend(), tui: false };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -483,9 +496,11 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   });
 
   // 7. Frontend. The TUI gets header chrome (cwd + a "provider · model" label).
-  const useTui = useTuiFrontend(args, Boolean(process.stdout.isTTY));
+  //    `useTui` reflects what we *actually* mounted: a failed TUI import
+  //    degrades to stdout, in which case we must drive the headless input loop.
+  const wantTui = useTuiFrontend(args, Boolean(process.stdout.isTTY));
   const providerLabel = `${config.provider} · ${config.model}`;
-  const frontend = await makeFrontend(useTui, { cwd, providerLabel }, log);
+  const { frontend, tui: useTui } = await makeFrontend(wantTui, { cwd, providerLabel }, log);
   // If the frontend renders live tool output in its own surface (the TUI), route
   // ctx.emit there; otherwise emit to stdout (headless). Bound once here.
   const emitChunk: (chunk: string) => void = supportsToolOutput(frontend)

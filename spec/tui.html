@@ -416,6 +416,7 @@ function toDecision(v: "once" | "session" | "deny"): Decision {
           <tr><td><code>y</code></td><td>Approval shown</td><td>Allow once → resolve pending decision.</td></tr>
           <tr><td><code>a</code></td><td>Approval shown</td><td>Allow session → resolve pending decision.</td></tr>
           <tr><td><code>n</code></td><td>Approval shown</td><td>Deny → resolve pending decision.</td></tr>
+          <tr><td><code>Ctrl-C</code></td><td>Approval shown</td><td>Deny the pending prompt <em>and</em> fire the turn's <code>AbortController.abort()</code>, so the blocked gate unblocks and the loop unwinds rather than the user being stuck on y/a/n.</td></tr>
         </tbody>
       </table>
       <pre><code>wireKeys() {
@@ -425,6 +426,13 @@ function toDecision(v: "once" | "session" | "deny"): Decision {
       if (ev.name === "y") return this.pendingApproval(toDecision("once"));
       if (ev.name === "a") return this.pendingApproval(toDecision("session"));
       if (ev.name === "n") return this.pendingApproval(toDecision("deny"));
+      // Ctrl-C while parked on an approval: deny it (to unblock the gate) AND
+      // abort the turn, so the loop can unwind instead of hanging.
+      if (ev.ctrl &amp;&amp; ev.name === "c") {
+        this.activeAbort?.abort();
+        return this.pendingApproval(toDecision("deny"));
+      }
+      return;  // swallow other keys while the modal is up
     }
     if (ev.ctrl &amp;&amp; ev.name === "c") {
       if (this.activeAbort) this.activeAbort.abort();   // interrupt the turn
@@ -439,7 +447,7 @@ function toDecision(v: "once" | "session" | "deny"): Decision {
 }</code></pre>
       <div class="note">
         <span class="label">Abort ownership</span>
-        The TUI holds the <code>AbortController</code> for the in-flight turn and passes its <code>signal</code> into the core when calling <code>submit</code>. On abort the core emits a synthetic interrupted tool result and a <code>turn.done</code>; the TUI then re-enables input as usual. The TUI never tears down state on its own — it waits for <code>turn.done</code>.
+        The TUI holds the <code>AbortController</code> for the in-flight turn and passes its <code>signal</code> into the core when calling <code>submit</code>. On abort the core emits an interrupted tool result for every still-unanswered tool call and a <code>turn.done</code>; the TUI then re-enables input as usual. The TUI never tears down state on its own — it waits for <code>turn.done</code>.
       </div>
     </section>
 

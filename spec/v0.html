@@ -290,7 +290,7 @@
       <ul>
         <li><strong>Tools execute sequentially in v0.</strong> Parallel tool dispatch is deferred — it complicates approval ordering and output interleaving.</li>
         <li><strong>Every tool call gets a result message.</strong> Denied / errored / cancelled calls still append a result so provider message history stays valid (both APIs require a result for every tool call id).</li>
-        <li><strong>Cancellation unwinds cleanly.</strong> An <code>AbortSignal</code> threads from the TUI through the provider stream and <code>Bun.spawn</code>; on abort the loop emits a synthetic tool result ("interrupted by user") and returns.</li>
+        <li><strong>Cancellation unwinds cleanly.</strong> An <code>AbortSignal</code> threads from the TUI through the provider stream and <code>Bun.spawn</code>; on abort the loop synthesizes an "interrupted" result for the call in flight <em>and every remaining tool call declared in the assistant message</em> (whether or not it had started), appends them all, then returns. This upholds the "every tool call gets a result" invariant above — leaving a sibling call unanswered would corrupt the next provider round-trip after a resume.</li>
         <li><strong>Turn cap.</strong> A max-iteration guard prevents runaway loops; hitting it emits a recoverable error.</li>
       </ul>
     </section>
