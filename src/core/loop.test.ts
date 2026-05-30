@@ -444,6 +444,73 @@ describe("runTurn — abort", () => {
     expect(provider.streamCount).toBe(1);
   });
 
+  test("an abort partway through a multi-tool turn finalizes every remaining call", async () => {
+    // The model requests three tools in one turn. We abort after the first
+    // tool's result; the loop must still append interrupted results for the
+    // two trailing calls so the assistant message's tool_call ids are all
+    // answered (both provider APIs require a result per id).
+    const c1 = tc("m1", "echo", { msg: "a" });
+    const c2 = tc("m2", "echo", { msg: "b" });
+    const c3 = tc("m3", "echo", { msg: "c" });
+    const ac = new AbortController();
+    const provider = new FakeProvider([
+      [
+        { type: "tool_call", call: c1 },
+        { type: "tool_call", call: c2 },
+        { type: "tool_call", call: c3 },
+        { type: "done", stopReason: "tool_use", usage: { inputTokens: 1, outputTokens: 1 } },
+      ],
+    ]);
+    const session = newSession();
+    const registry = new FakeRegistry([makeFakeTool()]);
+    const ctx = makeCtx(ac.signal);
+
+    const gen = runTurn({
+      session,
+      provider,
+      registry,
+      gate: makeGate("once"),
+      model: "m",
+      signal: ac.signal,
+      ctx,
+    });
+
+    const events: AgentEvent[] = [];
+    for await (const ev of gen) {
+      events.push(ev);
+      // Abort right after the first tool's result lands.
+      if (ev.type === "tool.result" && ev.id === "m1") ac.abort();
+    }
+
+    // Every one of the three calls produced exactly one tool.result, and the
+    // turn ended interrupted.
+    const resultIds = events
+      .filter((e) => e.type === "tool.result")
+      .map((e) => (e.type === "tool.result" ? e.id : ""));
+    expect(resultIds).toEqual(["m1", "m2", "m3"]);
+
+    const turnDone = events.at(-1)!;
+    expect(turnDone.type === "turn.done" && turnDone.stopReason).toBe("interrupted");
+
+    // Session history: assistant(3 tool_calls) + one user tool_result per call.
+    const toolResults = session.messages.filter(
+      (m) => m.role === "user" && m.content[0]?.type === "tool_result",
+    );
+    expect(toolResults.length).toBe(3);
+    // The two trailing results are interrupted; the first ran normally.
+    const resultFor = (id: string) =>
+      toolResults
+        .map((m) => m.content[0])
+        .find((b) => b?.type === "tool_result" && b.callId === id);
+    const b2 = resultFor("m2");
+    const b3 = resultFor("m3");
+    expect(b2?.type === "tool_result" && b2.result.meta?.interrupted).toBe(true);
+    expect(b3?.type === "tool_result" && b3.result.meta?.interrupted).toBe(true);
+
+    // No second provider round-trip after the abort.
+    expect(provider.streamCount).toBe(1);
+  });
+
   test("an abort before the first provider round-trip ends immediately", async () => {
     const ac = new AbortController();
     ac.abort();

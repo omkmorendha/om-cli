@@ -273,6 +273,7 @@ export function mapAnthropicStop(reason: string | null | undefined): StopReason 
  */
 export async function* parseAnthropicStream(
   events: AsyncIterable<AnthropicStreamEventLike>,
+  onUsage?: (usage: Usage) => void,
 ): AsyncIterable<ProviderEvent> {
   const pending = new Map<number, { id: string; name: string; json: string }>();
   let usage: Usage = zeroUsage();
@@ -282,6 +283,10 @@ export async function* parseAnthropicStream(
     switch (ev.type) {
       case "message_start": {
         usage = mapAnthropicUsage(usage, ev.message.usage);
+        // Surface usage as soon as it arrives (input + cache tokens land on
+        // message_start) so a caller that aborts mid-stream can still report
+        // the tokens already counted instead of zeros (providers.html §07).
+        onUsage?.(usage);
         break;
       }
 
@@ -320,6 +325,7 @@ export async function* parseAnthropicStream(
       case "message_delta": {
         stopReason = mapAnthropicStop(ev.delta.stop_reason);
         usage = mapAnthropicUsage(usage, ev.usage);
+        onUsage?.(usage);
         break;
       }
 
@@ -399,7 +405,11 @@ export class AnthropicProvider implements Provider {
         { signal: req.signal },
       ) as unknown as AsyncIterable<AnthropicStreamEventLike>;
 
-      for await (const ev of parseAnthropicStream(sdkStream)) {
+      // Track usage continuously (not just on `done`) so an abort mid-stream
+      // still reports the input/cache tokens that already arrived.
+      for await (const ev of parseAnthropicStream(sdkStream, (u) => {
+        usage = u;
+      })) {
         if (ev.type === "done") usage = ev.usage;
         yield ev;
       }

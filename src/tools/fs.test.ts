@@ -34,6 +34,13 @@ function ctx(): ToolContext {
   };
 }
 
+/** A context whose signal is already aborted, for testing prompt unwind. */
+function abortedCtx(): ToolContext {
+  const ac = new AbortController();
+  ac.abort();
+  return { cwd: dir, signal: ac.signal, log: nullLogger(), readSet };
+}
+
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "om-fs-"));
   readSet = new Set<string>();
@@ -65,6 +72,15 @@ describe("read", () => {
     expect(r.meta?.lines).toBe(3);
     expect(r.meta?.totalLines).toBe(3);
     expect(r.meta?.path).toBe(p);
+  });
+
+  test("returns promptly with an interrupted error when the signal is already aborted", async () => {
+    const p = write("a.txt", "x\n");
+    const r = await readTool.run({ path: p }, abortedCtx());
+    expect(r.ok).toBe(false);
+    expect(r.error).toBe("interrupted");
+    // The read was not recorded in the read-set since it never completed.
+    expect(readSet.has(p)).toBe(false);
   });
 
   test("records resolved path in readSet on success", async () => {
@@ -255,6 +271,16 @@ describe("grep (fallback)", () => {
     const r = await grepTool.run({ pattern: "TODO", ignoreCase: false, context: 0 }, ctx());
     expect(r.ok).toBe(true);
     expect(r.content).toBe("(no matches)");
+    expect(r.meta?.matches).toBe(0);
+  });
+
+  test("an already-aborted signal unwinds before scanning any file", async () => {
+    write("a.txt", "first TODO line\nthird TODO\n");
+    const r = await grepTool.run(
+      { pattern: "TODO", ignoreCase: false, context: 0 },
+      abortedCtx(),
+    );
+    // Returns promptly with no matches; the fallback breaks at the first file.
     expect(r.meta?.matches).toBe(0);
   });
 

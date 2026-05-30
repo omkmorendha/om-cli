@@ -306,6 +306,14 @@ export class TuiFrontend implements Frontend {
         if (ev.name === "y") return this.resolveApproval(toDecision("once"));
         if (ev.name === "a") return this.resolveApproval(toDecision("session"));
         if (ev.name === "n") return this.resolveApproval(toDecision("deny"));
+        // Ctrl-C while parked on an approval: abort the active turn and deny the
+        // prompt, so the blocked gate unblocks and the loop unwinds cleanly
+        // rather than leaving the user stuck choosing y/a/n (spec §08).
+        if (ev.ctrl && ev.name === "c") {
+          this.log.info("ctrl-c: aborting turn (approval pending)");
+          this.activeAbort?.abort();
+          return this.resolveApproval(toDecision("deny"));
+        }
         return; // swallow other keys while the modal is up
       }
 

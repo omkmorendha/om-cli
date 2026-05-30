@@ -356,20 +356,26 @@ export function useTuiFrontend(args: ParsedArgs, isTty: boolean): boolean {
  * headless run never needs OpenTUI or a TTY to be present on the import path.
  * If the TUI module is absent (not yet implemented) we degrade to stdout.
  */
-async function makeFrontend(useTui: boolean, log: Logger): Promise<Frontend> {
+async function makeFrontend(
+  useTui: boolean,
+  log: Logger,
+): Promise<{ frontend: Frontend; tui: boolean }> {
   if (useTui) {
     try {
       const mod = (await import("./tui/tui.ts")) as {
         TuiFrontend: new () => Frontend;
       };
-      return new mod.TuiFrontend();
+      return { frontend: new mod.TuiFrontend(), tui: true };
     } catch (err) {
       log.warn("TUI frontend unavailable; falling back to stdout", {
         error: err instanceof Error ? err.message : String(err),
       });
     }
   }
-  return new StdoutFrontend();
+  // Either headless was requested, or the TUI import failed and we degraded.
+  // Report `tui: false` so the caller drives the headless stdin input loop —
+  // otherwise the StdoutFrontend would mount with no input source.
+  return { frontend: new StdoutFrontend(), tui: false };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -452,9 +458,10 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
       }),
   });
 
-  // 7. Frontend.
-  const useTui = useTuiFrontend(args, Boolean(process.stdout.isTTY));
-  const frontend = await makeFrontend(useTui, log);
+  // 7. Frontend. `tui` reflects what we *actually* mounted: a failed TUI import
+  //    degrades to stdout, in which case we must drive the headless input loop.
+  const wantTui = useTuiFrontend(args, Boolean(process.stdout.isTTY));
+  const { frontend, tui: useTui } = await makeFrontend(wantTui, log);
 
   // The frontend reports the user's decision back here; resolve the parked
   // requestApproval promise so gate.check (inside the loop) unblocks.
