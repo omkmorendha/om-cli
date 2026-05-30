@@ -5,9 +5,9 @@ LLM drives a loop, calls tools to read and modify the local filesystem and run c
 and a TUI renders the conversation, tool activity, and approvals.
 
 > **Status: v0 feature-complete.** Core (agent loop, providers, tools, permissions, sessions),
-> the OpenTUI + headless frontends, and the entry point are all implemented and tested
-> (263 tests, `tsc` clean). What's left is hands-on TTY verification of the live TUI. See
-> [Status](#status) below.
+> the rich OpenTUI frontend + headless fallback, and the entry point are all implemented and
+> tested (305 tests, `tsc` clean). What's left is a hands-on pass of the live TUI in a real
+> terminal. See [Status](#status) below.
 
 **Stack:** [Bun](https://bun.sh) · TypeScript (strict) · [OpenTUI](https://github.com/sst/opentui) ·
 [zod](https://zod.dev) 4 · Anthropic Messages API + OpenAI Responses API.
@@ -75,10 +75,39 @@ cp .env.example .env        # then fill in ANTHROPIC_API_KEY / OPENAI_API_KEY
 
 bun run typecheck           # tsc --noEmit
 bun test                    # bun:test suite
-bun run om                  # launch the harness (TUI if a TTY, else stdout)
-bun run om --headless       # force the plain stdout frontend
 bun run om --help           # flags + env vars
 ```
+
+### Running the TUI
+
+The rich OpenTUI frontend (markdown replies, per-tool cards, live status bar) needs a real
+terminal (a TTY). Run it directly in your terminal — not through a pipe, an IDE “run” pane that
+captures stdout, or CI:
+
+```bash
+bun run om --tui            # force the OpenTUI frontend (requires a TTY)
+bun run om                  # auto: TUI when stdout is a TTY, else headless stdout
+bun run om --headless       # force the plain stdout frontend (pipes, CI, debugging)
+```
+
+Once it's up:
+
+- **Type a message** and press **Enter** to send. The assistant’s reply streams in as rendered
+  markdown; each tool call appears as its own card with a live spinner, and `bash` output streams
+  into its card as it runs.
+- **Approvals**: when a tool wants to write to disk or run a command, an approval bar appears —
+  press **`y`** (allow once), **`a`** (allow for the rest of the session), or **`n`** (deny). You
+  can also pick with the arrow keys + Enter.
+- **Interrupt / exit**: **Ctrl-C** aborts the in-flight turn; at an idle, empty prompt a second
+  Ctrl-C (or **Ctrl-D**) exits. The footer always shows these hints.
+
+You’ll need a provider API key in the environment first (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`,
+e.g. via `.env` above). The provider/model and a running token count are shown in the header.
+
+> If the terminal can’t initialize the renderer, om falls back to the headless stdout frontend
+> automatically — so a non-TTY environment degrades gracefully rather than crashing. Code-block
+> syntax highlighting additionally requires the optional `web-tree-sitter` peer; without it,
+> markdown still renders, just with unhighlighted code.
 
 Configuration is merged from built-in defaults → `~/.om/config.json` → `./.om/config.json`
 → env/flags. Example project config:
@@ -106,7 +135,8 @@ om-cli/
 │   ├── providers/       # anthropic.ts, openai.ts (canonical ⇄ wire adapters)
 │   ├── tools/           # fs (read/ls/glob/grep/write/edit), bash, registry, truncate
 │   ├── permission/      # approval gate
-│   ├── tui/             # OpenTUI frontend (in progress)
+│   ├── tui/             # rich OpenTUI frontend (tui.ts) · headless stdout (stdout.ts)
+│   │                    #   · theme.ts · frontend.ts (shared, testable render helpers)
 │   ├── util/            # structured JSONL logger
 │   └── config.ts        # config resolution
 └── test co-located as *.test.ts next to each module
@@ -132,11 +162,13 @@ v0 milestones (see [`spec/v0.html` §12](./spec/v0.html)):
 - [x] Permission gate (auto-allow / prompt / session-allowlist)
 - [x] Anthropic (Messages) + OpenAI (Responses) provider adapters
 - [x] Agent loop (streaming, sequential tools, abort, turn cap)
-- [x] OpenTUI frontend + headless stdout fallback + `main.ts` wiring
-- [x] `tsc --noEmit` clean · `bun test` green (263 tests)
+- [x] Rich OpenTUI frontend (markdown replies · per-tool cards + diffs · live status bar ·
+      animated spinners · live bash output) + headless stdout fallback + `main.ts` wiring
+- [x] `tsc --noEmit` clean · `bun test` green (305 tests)
 
-**v0 is feature-complete.** Remaining: manual TTY verification of the OpenTUI frontend
-(streaming, tool cards, approval bar, Ctrl-C abort) in a real terminal — can't run in CI.
+**v0 is feature-complete.** The rich TUI renders correctly against OpenTUI's headless test
+renderer (proving the runtime accepts the full renderable tree); a final hands-on pass in a
+real terminal — live streaming cadence, Ctrl-C abort feel — is the only thing CI can't cover.
 
 ## License
 

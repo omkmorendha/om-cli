@@ -351,18 +351,48 @@ export function useTuiFrontend(args: ParsedArgs, isTty: boolean): boolean {
   return args.tui;
 }
 
+/** Header context shown by a frontend that has chrome (currently the TUI). */
+export interface FrontendChrome {
+  /** Project working directory shown in the header. */
+  cwd: string;
+  /** Provider/model label, e.g. "anthropic · claude-sonnet-…". */
+  providerLabel: string;
+}
+
+/**
+ * A frontend that can render incremental tool output (live bash stdout) inside
+ * its own surface. The TUI implements this so `ctx.emit` chunks land in the
+ * active tool card instead of being written to stdout (which would corrupt the
+ * alt-screen). Detected structurally so main.ts stays free of OpenTUI types.
+ */
+interface SupportsToolOutput {
+  emitToolOutput(chunk: string): void;
+}
+
+function supportsToolOutput(f: Frontend): f is Frontend & SupportsToolOutput {
+  return typeof (f as Partial<SupportsToolOutput>).emitToolOutput === "function";
+}
+
 /**
  * Construct the chosen frontend. The TUI module is imported *dynamically* so a
  * headless run never needs OpenTUI or a TTY to be present on the import path.
- * If the TUI module is absent (not yet implemented) we degrade to stdout.
+ * If the TUI module is absent or fails to load, we degrade to stdout.
  */
-async function makeFrontend(useTui: boolean, log: Logger): Promise<Frontend> {
+async function makeFrontend(
+  useTui: boolean,
+  chrome: FrontendChrome,
+  log: Logger,
+): Promise<Frontend> {
   if (useTui) {
     try {
       const mod = (await import("./tui/tui.ts")) as {
-        TuiFrontend: new () => Frontend;
+        TuiFrontend: new (opts: { cwd: string; providerLabel: string; log: Logger }) => Frontend;
       };
-      return new mod.TuiFrontend();
+      return new mod.TuiFrontend({
+        cwd: chrome.cwd,
+        providerLabel: chrome.providerLabel,
+        log,
+      });
     } catch (err) {
       log.warn("TUI frontend unavailable; falling back to stdout", {
         error: err instanceof Error ? err.message : String(err),
@@ -452,9 +482,15 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
       }),
   });
 
-  // 7. Frontend.
+  // 7. Frontend. The TUI gets header chrome (cwd + a "provider · model" label).
   const useTui = useTuiFrontend(args, Boolean(process.stdout.isTTY));
-  const frontend = await makeFrontend(useTui, log);
+  const providerLabel = `${config.provider} · ${config.model}`;
+  const frontend = await makeFrontend(useTui, { cwd, providerLabel }, log);
+  // If the frontend renders live tool output in its own surface (the TUI), route
+  // ctx.emit there; otherwise emit to stdout (headless). Bound once here.
+  const emitChunk: (chunk: string) => void = supportsToolOutput(frontend)
+    ? (chunk) => frontend.emitToolOutput(chunk)
+    : (chunk) => void process.stdout.write(chunk);
 
   // The frontend reports the user's decision back here; resolve the parked
   // requestApproval promise so gate.check (inside the loop) unblocks.
@@ -479,11 +515,9 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     },
     log,
     readSet: session.readSet,
-    emit: (chunk: string) => {
-      // Live tool output streams to stdout in headless mode via the frontend's
-      // own render path; for now route incremental chunks to stderr-free stdout.
-      process.stdout.write(chunk);
-    },
+    // Live tool output (e.g. bash stdout): the TUI routes it into the active
+    // tool card (alt-screen safe); headless writes it straight to stdout.
+    emit: emitChunk,
   };
 
   // onSubmit is the universal turn entry. The TUI frontend owns its own input

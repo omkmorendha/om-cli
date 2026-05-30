@@ -92,9 +92,37 @@
         <span class="pill">@opentui/core 0.3.0</span>
         <span class="pill">Yoga flexbox</span>
         <span class="pill alt">Bun</span>
-        <span class="pill warn">Draft · 2026-05-30</span>
+        <span class="pill alt">Built · 2026-05-30</span>
       </div>
     </header>
+
+    <div class="note scope">
+      <strong>Build status.</strong> The rich frontend (<code>src/tui/tui.ts</code>) is implemented
+      against the verified 0.3.0 API and renders: <strong>streamed markdown</strong> assistant
+      replies (via <code>MarkdownRenderable</code>, with a graceful fall back to styled text if the
+      markdown/tree-sitter stack can't initialize), <strong>per-tool cards</strong> with tailored
+      summaries, accent colors, animated spinners, and colorized edit/write diffs, <strong>live bash
+      output</strong> streamed into the active card (routed via <code>ctx.emit</code> →
+      <code>emitToolOutput</code>, never stdout), a two-part <strong>header + live status bar</strong>
+      (spinner · state · elapsed · token usage incl. prompt-cache), a <strong>welcome card</strong>,
+      and a <strong>footer key-hint line</strong>. The pure string/diff shaping lives in
+      <code>frontend.ts</code> and is unit-tested; the theme is centralized in <code>theme.ts</code>.
+      Sections below describe the original four-region design; §03–§05 carry update notes where the
+      shipped UI elaborates it.
+    </div>
+
+    <div class="note">
+      <span class="label">Running it</span>
+      The TUI needs a real terminal (a TTY). From the repo root, with a provider key in the
+      environment (<code>ANTHROPIC_API_KEY</code> / <code>OPENAI_API_KEY</code>):
+      <pre style="margin:.6rem 0 0"><code>bun run om --tui        # force the OpenTUI frontend (requires a TTY)
+bun run om              # auto: TUI when stdout is a TTY, else headless stdout
+bun run om --headless   # force the plain stdout frontend (pipes, CI, debugging)</code></pre>
+      In-session: <strong>Enter</strong> sends; <strong>y / a / n</strong> answer an approval (allow
+      once / allow session / deny); <strong>Ctrl-C</strong> aborts the turn (a second Ctrl-C or
+      <strong>Ctrl-D</strong> at an idle prompt exits). If the renderer can't initialize, main.ts
+      falls back to the headless frontend automatically (<a class="inline" href="#headless">§10</a>).
+    </div>
 
     <!-- 1 -->
     <section id="overview">
@@ -121,12 +149,14 @@
         <tbody>
           <tr><td><code>createCliRenderer()</code></td><td><strong>Async</strong> — must be <code>await</code>ed. Returns the renderer whose <code>.root</code> is the top-level container we parent regions under.</td></tr>
           <tr><td><code>BoxRenderable</code></td><td>The structural primitive. Carries <code>border</code>, <code>title</code>, <code>backgroundColor</code>, <code>flexDirection</code>, <code>gap</code>, <code>padding</code>. Used for the root layout and for each tool card.</td></tr>
-          <tr><td><code>TextRenderable</code></td><td>A run of text. The live assistant block is one of these, mutated on each <code>text.delta</code>.</td></tr>
-          <tr><td><code>StyledText</code> / <code>TextAttributes</code></td><td><code>createTextAttributes({ ... })</code> builds fg/bg/bold/dim attribute sets; <code>StyledText</code> wraps colored spans (tool-name green, edit-removed red, edit-added green).</td></tr>
-          <tr><td><code>InputRenderable</code></td><td>The prompt line: <code>value</code>, <code>placeholder</code>, <code>onInput</code>, <code>onSubmit</code>, <code>focus()</code> / <code>blur()</code>, programmatic <code>submit()</code>.</td></tr>
-          <tr><td><code>ScrollBoxRenderable</code></td><td>The scrollable conversation region. Children (text blocks + tool cards) are appended; it manages the scroll viewport.</td></tr>
-          <tr><td><code>SelectRenderable</code></td><td>The approval choice widget (Allow once / Allow session / Deny).</td></tr>
-          <tr><td><code>KeyHandler</code> / <code>KeyEvent</code></td><td>Global keypress handling for Ctrl-C / Ctrl-D and the <code>y</code>/<code>a</code>/<code>n</code> approval shortcuts.</td></tr>
+          <tr><td><code>TextRenderable</code></td><td>A run of text. User lines, status/footer lines, tool-card titles/bodies, and the markdown fallback block are these. Accepts a <code>StyledText</code> as <code>content</code>.</td></tr>
+          <tr><td><code>MarkdownRenderable</code></td><td><strong>(shipped)</strong> Assistant replies. Constructed with <code>streaming: true</code> and a <code>SyntaxStyle</code>; fed the accumulated text on each <code>text.delta</code> and finalized (<code>streaming = false</code>) on <code>text.done</code>. Renders headings, lists, blockquotes, inline emphasis, and fenced code. Wrapped in a <code>try/catch</code> that falls back to a styled <code>TextRenderable</code> if the stack can't init.</td></tr>
+          <tr><td><code>SyntaxStyle</code> / tree-sitter</td><td><strong>(shipped)</strong> <code>SyntaxStyle.create()</code> backs markdown styling. An optional <code>getTreeSitterClient()</code> enables fenced-code syntax highlighting; it is initialized fire-and-forget and attached only on success (the <code>web-tree-sitter</code> peer may be absent), with its <code>error</code>/<code>worker:log</code> events sunk into the logger so nothing leaks to the alt-screen.</td></tr>
+          <tr><td><code>StyledText</code> / <code>t</code> / <code>fg,bold,dim</code></td><td><strong>(shipped)</strong> Inline color. The <code>t\`…\`</code> template tag and the <code>fg/bold/dim/…</code> chunk helpers compose colored spans (tool-name accent, edit-removed red, edit-added green); a diff is built as <code>new StyledText(chunks)</code>. <code>createTextAttributes</code> remains available for attribute sets.</td></tr>
+          <tr><td><code>InputRenderable</code></td><td>The prompt line: <code>value</code>, <code>placeholder</code>/<code>placeholderColor</code>, <code>textColor</code>, the <code>InputRenderableEvents.ENTER</code> submit event, <code>focus()</code> / <code>blur()</code>.</td></tr>
+          <tr><td><code>ScrollBoxRenderable</code></td><td>The scrollable conversation region (<code>stickyScroll</code>, <code>stickyStart:"bottom"</code>). Children attach to <code>scrollbox.content.add(...)</code>; <code>scrollTo(...)</code> keeps live output pinned to the bottom.</td></tr>
+          <tr><td><code>SelectRenderable</code></td><td>The approval choice widget (Allow once / Allow for session / Deny), themed with selected fg/bg + description colors. Choice arrives via <code>SelectRenderableEvents.ITEM_SELECTED</code>.</td></tr>
+          <tr><td><code>KeyHandler</code> / <code>KeyEvent</code></td><td>Global keypress handling via <code>renderer.keyInput</code> for Ctrl-C / Ctrl-D and the <code>y</code>/<code>a</code>/<code>n</code> approval shortcuts.</td></tr>
         </tbody>
       </table>
       <pre><code>import {
@@ -147,32 +177,40 @@ const root = renderer.root;</code></pre>
     <!-- 3 -->
     <section id="layout">
       <h2><span class="num">03</span> Layout &amp; Regions</h2>
-      <p>The screen is a single column (<code>flexDirection: "column"</code>) of four regions. The header and input are fixed-height; the scrollback grows (<code>flexGrow: 1</code>) to fill the middle; the approval bar is zero-height until an <code>approval.request</code> arrives, then expands.</p>
+      <p>The screen is a single column (<code>flexDirection: "column"</code>). The original design had four regions; the shipped UI adds two thin chrome lines — a <strong>live status bar</strong> (shown only while a turn runs) and a always-on <strong>footer</strong> of key hints — plus a one-shot <strong>welcome card</strong> inside the scrollback. Header, status bar, approval, input, and footer are fixed-height (the status bar and approval collapse to zero when idle/unneeded); the scrollback grows (<code>flexGrow: 1</code>) to fill the middle.</p>
       <div class="diagram">┌────────────────────────────────────────────────┐
-│ <b>om-cli</b>  ~/projects/personal/om-cli   <span class="c2">anthropic ·</span>   │  <b>header</b>  (Box, fixed)
+│ <b>om-cli</b> <span class="c2">›</span> ~/projects/app <span class="c2">›</span> <span class="c2">anthropic · sonnet</span> <span class="c2">›</span> 1.2k in │  <b>header</b>  (Box, fixed)
 ├────────────────────────────────────────────────┤
-│ ▸ you: refactor the parser to handle quotes      │
-│ ▸ om:  Reading the parser…                       │
-│   ┌── <span class="g">read</span> src/parser.ts ───────────────┐       │  <b>scrollback</b>  (ScrollBox,
-│   │ 142 lines                              │       │   flexGrow:1, + tool cards)
-│   └────────────────────────────────────────┘       │
-│   I'll update the tokenizer. Applying edit:        │
-│   ┌── <span class="o">edit</span> src/parser.ts ───────────────┐       │
-│   │ <span class="o">-</span> if (c === '"') …                     │       │
-│   │ <span class="g">+</span> if (c === '"' || c === "'") …        │       │
-│   └────────────────────────────────────────┘       │
+│ <span class="c2">❯</span> refactor the parser to handle single quotes     │
+│ <span class="g">## Plan</span>                                          │  <b>scrollback</b>  (ScrollBox,
+│ I'll update the tokenizer…                        │   flexGrow:1, markdown +
+│ ╭── <span class="g">▸ read</span> src/parser.ts · lines 1–142 ──╮       │   tool cards. First run shows
+│ │ <span class="g">✓</span> 142 lines                          │       │   a welcome card, dropped on
+│ ╰────────────────────────────────────────╯       │   the first real block.)
+│ ╭── <span class="o">▸ edit</span> src/parser.ts ──────────────╮       │
+│ │ <span class="o">-</span> if (c === '"')                       │       │
+│ │ <span class="g">+</span> if (c === '"' || c === "'")          │       │
+│ │ <span class="g">✓</span> -14/+27 bytes at line 88            │       │
+│ ╰────────────────────────────────────────╯       │
 ├────────────────────────────────────────────────┤
-│ <span class="o">Allow edit to src/parser.ts?</span>  (y) once (a) session (n) │  <b>approval</b>  (Box+Select,
-├────────────────────────────────────────────────┤   collapsed until needed)
-│ &gt; _                                              │  <b>input</b>  (Input, fixed)
+│ <span class="o">⠹</span> running edit… · 1.2s · 1.2k in · 567 out · esc │  <b>status bar</b>  (Box, shown
+├────────────────────────────────────────────────┤   only while a turn runs)
+│ <span class="o">╭─ ? approval required ──────────────────────╮</span>   │  <b>approval</b>  (Box+Select,
+│ <span class="o">╰────────────────────────────────────────────╯</span>   │   collapsed until needed)
+├────────────────────────────────────────────────┤
+│ <span class="g">❯</span> Ask om-cli…  (Enter to send)                   │  <b>input</b>  (Input, fixed)
+├────────────────────────────────────────────────┤
+│ <span class="c2">❯ Enter</span> send  <span class="c2">Ctrl-C</span> interrupt/exit  <span class="c2">Ctrl-D</span> exit │  <b>footer</b>  (Box, fixed)
 └────────────────────────────────────────────────┘</div>
       <table>
         <thead><tr><th>Region</th><th>Renderable</th><th>Notes</th></tr></thead>
         <tbody>
-          <tr><td>Header</td><td><code>BoxRenderable</code> + <code>TextRenderable</code></td><td>cwd, active provider/model, running token usage from the latest <code>turn.done</code>.</td></tr>
-          <tr><td>Scrollback</td><td><code>ScrollBoxRenderable</code></td><td><code>flexGrow: 1</code>. Holds interleaved user/assistant text blocks and tool-card boxes in arrival order.</td></tr>
-          <tr><td>Approval</td><td><code>BoxRenderable</code> + <code>SelectRenderable</code></td><td>Hidden (<code>visible=false</code>) by default; shown on <code>approval.request</code>, hidden again on response.</td></tr>
-          <tr><td>Input</td><td><code>InputRenderable</code></td><td>Focused at idle; blurred while a turn streams; refocused on <code>turn.done</code>.</td></tr>
+          <tr><td>Header</td><td><code>BoxRenderable</code> + <code>TextRenderable</code></td><td>cwd · provider/model · running token usage (in/out, + prompt-cache when present) from the latest <code>turn.done</code>. Composed as one <code>StyledText</code>.</td></tr>
+          <tr><td>Scrollback</td><td><code>ScrollBoxRenderable</code></td><td><code>flexGrow: 1</code>, sticky-to-bottom. Holds interleaved user lines, markdown assistant blocks, and tool-card boxes in arrival order. Seeds a <strong>welcome card</strong> that is removed on the first appended block.</td></tr>
+          <tr><td>Status bar</td><td><code>BoxRenderable</code> + <code>TextRenderable</code></td><td><strong>(shipped)</strong> <code>visible=false</code> when idle. While a turn runs: animated spinner · state (<em>thinking</em> / <em>running &lt;tool&gt;</em>) · elapsed · token usage. Driven by a <code>setInterval</code> spinner ticker.</td></tr>
+          <tr><td>Approval</td><td><code>BoxRenderable</code> + <code>SelectRenderable</code></td><td>Hidden by default; shown on <code>approval.request</code> with an orange border + colored tool name, hidden again on response.</td></tr>
+          <tr><td>Input</td><td><code>BoxRenderable</code> + <code>InputRenderable</code></td><td>A green <code>❯</code> marker + the input. Focused at idle; blurred while a turn streams; refocused on <code>turn.done</code>.</td></tr>
+          <tr><td>Footer</td><td><code>BoxRenderable</code> + <code>TextRenderable</code></td><td><strong>(shipped)</strong> Always-on key hints. Briefly flashes “press Ctrl-C again to exit” when the idle Ctrl-C exit latch is armed.</td></tr>
         </tbody>
       </table>
     </section>
@@ -237,13 +275,14 @@ interface ToolCard { box: BoxRenderable; body: TextRenderable; spinner: TextRend
       <table>
         <thead><tr><th>AgentEvent</th><th>Render mutation</th></tr></thead>
         <tbody>
-          <tr><td><code>text.delta {text}</code></td><td>Append <code>text</code> to <code>liveAssistant</code> (creating it if null). No scroll thrash — content grows in place.</td></tr>
-          <tr><td><code>text.done {text}</code></td><td>Seal the block: <code>liveAssistant = null</code> so the next text starts fresh.</td></tr>
-          <tr><td><code>tool.start {id,name,input}</code></td><td>Create a tool-card <code>BoxRenderable</code> (title = name, body = <code>preview(input)</code>), show a spinner, store it in <code>toolCards[id]</code>, append to scrollback.</td></tr>
-          <tr><td><code>tool.result {id,output}</code></td><td>Look up <code>toolCards[id]</code>, stop the spinner, replace body with the (truncated) <code>output.content</code>; border turns red if <code>!output.ok</code>.</td></tr>
-          <tr><td><code>approval.request {id,tool,preview}</code></td><td>Show the approval bar with <code>preview</code>, focus the <code>SelectRenderable</code>, blur input. Resolve the pending decision on choice (<a class="inline" href="#approval">§07</a>).</td></tr>
-          <tr><td><code>turn.done {stopReason,usage}</code></td><td>Update header usage, re-enable + refocus the input, clear any spinner state.</td></tr>
-          <tr><td><code>error {message,fatal}</code></td><td>Append a red error block to scrollback. If <code>fatal</code>, also disable input and surface an exit hint.</td></tr>
+          <tr><td><code>text.delta {text}</code></td><td>Append <code>text</code> to the accumulated buffer and push it into <code>liveAssistant</code> — a streaming <code>MarkdownRenderable</code> (created lazily on the first delta), or a styled <code>TextRenderable</code> if markdown is unavailable. Status verb → <em>thinking</em>. Content grows in place.</td></tr>
+          <tr><td><code>text.done {text}</code></td><td>Seal the block: finalize the markdown (<code>streaming = false</code>) and set <code>liveAssistant = null</code> so the next text starts fresh.</td></tr>
+          <tr><td><code>tool.start {id,name,input}</code></td><td>Create a tool-card <code>BoxRenderable</code> with an accent-colored <code>▸ name</code> title + a per-tool <strong>summary</strong> of the input (<code>summarizeToolInput</code>); for edit/write, render a colorized diff body. Start an animated spinner, store it in <code>toolCards[id]</code> as the active emit target, append to scrollback. Status verb → the tool name.</td></tr>
+          <tr><td><code>tool.result {id,output}</code></td><td>Look up <code>toolCards[id]</code>, stop its spinner, and write a structured result line (<code>summarizeToolResult</code> — lines/entries/matches/bytes/exit/duration from <code>output.meta</code>) with a <span class="g">✓</span>/<span class="o">✗</span> mark; border turns red if <code>!output.ok</code>. Non-streaming tools get a short content tail in the body.</td></tr>
+          <tr><td><em>(live)</em> <code>ctx.emit(chunk)</code></td><td><strong>(shipped)</strong> Not an <code>AgentEvent</code> — routed by main.ts to <code>emitToolOutput(chunk)</code>, which appends into the <strong>active</strong> tool card's body (bash stdout) and keeps the scrollback pinned to the bottom. Kept inside the alt-screen; never written to stdout.</td></tr>
+          <tr><td><code>approval.request {id,tool,preview}</code></td><td>Show the approval bar with <code>preview</code> + colored tool name, focus the <code>SelectRenderable</code>, blur input. Resolve the pending decision on choice (<a class="inline" href="#approval">§07</a>).</td></tr>
+          <tr><td><code>turn.done {stopReason,usage}</code></td><td>Update header usage, hide the status bar, stop the spinner ticker, re-enable + refocus the input.</td></tr>
+          <tr><td><code>error {message,fatal}</code></td><td>Append a red error block (with a <span class="o">✗</span> marker, “(fatal)” suffix when fatal) to scrollback.</td></tr>
         </tbody>
       </table>
       <pre><code>async function consume(events: AsyncIterable&lt;AgentEvent&gt;, tui: TuiFrontend) {
