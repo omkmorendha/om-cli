@@ -14,6 +14,42 @@ and a TUI renders the conversation, tool activity, and approvals.
 
 ---
 
+## The TUI
+
+The rich OpenTUI frontend renders the whole agent loop in your terminal: a header with
+provider/model and a live token counter, the assistant's reply as rendered markdown, each tool
+call as its own card (with live `bash` output and exit status), and an approval bar before
+anything touches disk or runs a command.
+
+![om-cli driving a real agent loop in the terminal](docs/media/demo.gif)
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/media/welcome.png" alt="om-cli welcome screen" /><br/>
+      <sub><b>Welcome screen</b> — header (path · provider · model · token counter), the prompt, and the footer keybind hints.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/media/tool-cards.png" alt="Tool cards with live output and exit status" /><br/>
+      <sub><b>Tool cards</b> — a finished <code>bash</code> call with output and a green <code>✓ exit 0</code>, plus another still streaming.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/media/approval.png" alt="Approval bar for a bash command" /><br/>
+      <sub><b>Approval gate</b> — writes and commands pause for <code>y</code> allow once · <code>a</code> allow session · <code>n</code> deny.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/media/markdown-reply.png" alt="Rendered markdown reply with a tool card" /><br/>
+      <sub><b>Markdown replies</b> — the assistant's answer renders as markdown (lists, emphasis, code) right in the scrollback.</sub>
+    </td>
+  </tr>
+</table>
+
+> Captured live against `claude-haiku-4-5` via the Anthropic Messages API.
+
+---
+
 ## Why
 
 A small, legible harness you can actually read end-to-end. The design bias is:
