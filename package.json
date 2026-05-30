@@ -1,0 +1,30 @@
+{
+  "name": "om-cli",
+  "version": "0.0.0",
+  "description": "A terminal-native agentic coding harness (Bun + TypeScript + OpenTUI).",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "om": "./src/main.ts"
+  },
+  "scripts": {
+    "om": "bun run src/main.ts",
+    "dev": "OM_LOG_LEVEL=debug bun run src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:watch": "bun test --watch"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
+    "@opentui/core": "^0.3.0",
+    "openai": "^6.39.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "bun": ">=1.3.0"
+  }
+}

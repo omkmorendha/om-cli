@@ -1,8 +1,7 @@
 # Dependencies
 node_modules/
 
-# Bun
-bun.lockb
+# Bun (lockfile is committed for reproducible installs)
 .bun/
 
 # Build output
