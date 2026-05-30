@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TUI Layer — OpenTUI component spec · om-cli</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg-elev: #161b22; --bg-code: #1c2128; --border: #30363d;
+    --fg: #e6edf3; --fg-dim: #9da7b3; --fg-faint: #6e7681; --accent: #d2a8ff;
+    --accent-2: #79c0ff; --green: #7ee787; --orange: #ffa657; --red: #ff7b72;
+    --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.65; font-size: 16px; }
+  .wrap { display: grid; grid-template-columns: 260px 1fr; max-width: 1400px; margin: 0 auto; }
+  nav { position: sticky; top: 0; height: 100vh; overflow-y: auto; border-right: 1px solid var(--border); padding: 28px 20px; background: var(--bg-elev); }
+  nav .brand { font-family: var(--mono); font-weight: 700; font-size: 18px; color: var(--accent); letter-spacing: -0.5px; }
+  nav .brand .v { color: var(--fg-faint); font-weight: 400; font-size: 13px; }
+  nav ol { list-style: none; padding: 0; margin: 24px 0 0; counter-reset: sec; }
+  nav ol li { counter-increment: sec; margin: 2px 0; }
+  nav ol li a { display: block; color: var(--fg-dim); text-decoration: none; font-size: 14px; padding: 5px 10px; border-radius: 6px; transition: all .12s; }
+  nav ol li a::before { content: counter(sec) ".  "; color: var(--fg-faint); font-family: var(--mono); font-size: 12px; }
+  nav ol li a:hover { background: var(--bg-code); color: var(--fg); }
+  main { padding: 48px 56px 120px; max-width: 920px; }
+  header.hero { margin-bottom: 56px; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
+  header.hero h1 { font-family: var(--mono); font-size: 38px; margin: 0 0 8px; letter-spacing: -1px; }
+  header.hero .tag { color: var(--fg-dim); font-size: 18px; margin: 0; }
+  .pills { margin-top: 22px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { font-family: var(--mono); font-size: 12px; padding: 4px 11px; border-radius: 999px; background: var(--bg-code); border: 1px solid var(--border); color: var(--accent-2); }
+  .pill.alt { color: var(--green); } .pill.warn { color: var(--orange); }
+  section { margin-bottom: 56px; scroll-margin-top: 24px; }
+  h2 { font-size: 26px; margin: 0 0 18px; letter-spacing: -0.4px; display: flex; align-items: baseline; gap: 12px; }
+  h2 .num { font-family: var(--mono); font-size: 15px; color: var(--accent); }
+  h3 { font-size: 18px; margin: 30px 0 10px; color: var(--fg); }
+  h4 { font-size: 15px; margin: 22px 0 8px; color: var(--accent-2); font-family: var(--mono); }
+  p { color: var(--fg-dim); } p strong, li strong { color: var(--fg); }
+  ul, ol.body { color: var(--fg-dim); padding-left: 22px; } li { margin: 5px 0; }
+  code { font-family: var(--mono); background: var(--bg-code); padding: 1.5px 6px; border-radius: 5px; font-size: 13.5px; color: var(--accent); }
+  pre { background: var(--bg-code); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; overflow-x: auto; font-size: 13px; line-height: 1.55; }
+  pre code { background: none; padding: 0; color: var(--fg); }
+  .lead { font-size: 17px; color: var(--fg-dim); }
+  .note { border-left: 3px solid var(--accent-2); background: rgba(121,192,255,.07); padding: 12px 18px; border-radius: 0 8px 8px 0; margin: 18px 0; }
+  .note.scope { border-color: var(--green); background: rgba(126,231,135,.07); }
+  .note.defer { border-color: var(--orange); background: rgba(255,166,87,.07); }
+  .note .label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--fg-faint); display: block; margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--fg-faint); font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+  td { color: var(--fg-dim); } td code { font-size: 12.5px; }
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 10px; padding: 22px; margin: 18px 0; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: var(--fg-dim); white-space: pre; overflow-x: auto; }
+  .diagram b { color: var(--accent); } .diagram .c2 { color: var(--accent-2); } .diagram .g { color: var(--green); } .diagram .o { color: var(--orange); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+  .card h4 { margin-top: 0; }
+  .checklist { list-style: none; padding: 0; }
+  .checklist li { padding-left: 28px; position: relative; }
+  .checklist li::before { content: "▢"; position: absolute; left: 4px; color: var(--fg-faint); font-family: var(--mono); }
+  .checklist li.done::before { content: "▣"; color: var(--green); }
+  footer { color: var(--fg-faint); font-size: 13px; border-top: 1px solid var(--border); padding-top: 20px; margin-top: 60px; font-family: var(--mono); }
+  a.inline { color: var(--accent-2); }
+  @media (max-width: 880px) { .wrap { grid-template-columns: 1fr; } nav { position: relative; height: auto; } main { padding: 32px 24px 80px; } .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <div class="brand">om-cli <span class="v">tui spec</span></div>
+    <a href="index.html" style="display:block;font-family:var(--mono);font-size:12px;color:var(--fg-faint);text-decoration:none;margin-top:8px;">↑ Spec Index</a>
+    <ol>
+      <li><a href="#overview">Role &amp; Boundary</a></li>
+      <li><a href="#api">OpenTUI 0.3.0 API</a></li>
+      <li><a href="#layout">Layout &amp; Regions</a></li>
+      <li><a href="#tree">Component Tree</a></li>
+      <li><a href="#events">Event → Render Map</a></li>
+      <li><a href="#input">Input → Core Flow</a></li>
+      <li><a href="#approval">Approval Flow</a></li>
+      <li><a href="#keys">Keybindings</a></li>
+      <li><a href="#frontend">Frontend Interface</a></li>
+      <li><a href="#headless">Headless Fallback</a></li>
+      <li><a href="#perf">Scrollback Perf</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <h1>TUI Layer</h1>
+      <p class="tag">OpenTUI component spec — the terminal frontend that consumes the core's <code>AgentEvent</code> stream.</p>
+      <div class="pills">
+        <span class="pill">@opentui/core 0.3.0</span>
+        <span class="pill">Yoga flexbox</span>
+        <span class="pill alt">Bun</span>
+        <span class="pill warn">Draft · 2026-05-30</span>
+      </div>
+    </header>
+
+    <!-- 1 -->
+    <section id="overview">
+      <h2><span class="num">01</span> Role &amp; Boundary</h2>
+      <p class="lead">The TUI is the M5 frontend. It is a pure <strong>consumer</strong> of the core's <code>AgentEvent</code> async-iterable and a <strong>producer</strong> of two things back into the core: user messages and approval responses. It owns rendering state only — never session state.</p>
+      <p>This page elaborates §10 of the <a class="inline" href="v0.html#tui">core spec</a> against the real <code>@opentui/core</code> 0.3.0 surface. The seam this layer hangs off of is the <code>AgentEvent</code> union (defined in <a class="inline" href="v0.html#arch">v0 §4</a>); the TUI translates each event into a renderable mutation and nothing more.</p>
+      <ul>
+        <li><strong>No business logic.</strong> The TUI never decides whether a tool is allowed, never appends to <code>Session.messages</code>, never serializes a transcript. It renders what it is told and forwards what the user types.</li>
+        <li><strong>Swappable.</strong> The TUI and the headless stdout frontend (<a class="inline" href="#headless">§10</a>) implement one <code>Frontend</code> interface, so <a class="inline" href="v0.html#config">main.ts</a> picks one at boot. M1–M4 run headless; M5 swaps in the TUI.</li>
+        <li><strong>Cancellation source.</strong> Ctrl-C in the TUI fires the <code>AbortController</code> whose signal threads through the provider stream and <code>Bun.spawn</code> (<a class="inline" href="v0.html#loop">v0 §5</a> loop invariants).</li>
+      </ul>
+      <div class="note">
+        <span class="label">Direction of data</span>
+        Core → TUI is events (read-only render instructions). TUI → Core is exactly two callbacks on the <code>Frontend</code> interface: <code>onSubmit(text)</code> and <code>onApproval(id, decision)</code>. There is no third channel and no shared mutable state.
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="api">
+      <h2><span class="num">02</span> OpenTUI 0.3.0 API surface</h2>
+      <p>v0 targets the verified <code>@opentui/core</code> 0.3.0 primitives. Layout is Yoga flexbox — every renderable takes flexbox-style props (<code>flexDirection</code>, <code>flexGrow</code>, <code>gap</code>, <code>padding</code>). The renderer is created asynchronously and renderables are composed into a tree under its root.</p>
+      <table>
+        <thead><tr><th>Primitive</th><th>Use in om-cli</th></tr></thead>
+        <tbody>
+          <tr><td><code>createCliRenderer()</code></td><td><strong>Async</strong> — must be <code>await</code>ed. Returns the renderer whose <code>.root</code> is the top-level container we parent regions under.</td></tr>
+          <tr><td><code>BoxRenderable</code></td><td>The structural primitive. Carries <code>border</code>, <code>title</code>, <code>backgroundColor</code>, <code>flexDirection</code>, <code>gap</code>, <code>padding</code>. Used for the root layout and for each tool card.</td></tr>
+          <tr><td><code>TextRenderable</code></td><td>A run of text. The live assistant block is one of these, mutated on each <code>text.delta</code>.</td></tr>
+          <tr><td><code>StyledText</code> / <code>TextAttributes</code></td><td><code>createTextAttributes({ ... })</code> builds fg/bg/bold/dim attribute sets; <code>StyledText</code> wraps colored spans (tool-name green, edit-removed red, edit-added green).</td></tr>
+          <tr><td><code>InputRenderable</code></td><td>The prompt line: <code>value</code>, <code>placeholder</code>, <code>onInput</code>, <code>onSubmit</code>, <code>focus()</code> / <code>blur()</code>, programmatic <code>submit()</code>.</td></tr>
+          <tr><td><code>ScrollBoxRenderable</code></td><td>The scrollable conversation region. Children (text blocks + tool cards) are appended; it manages the scroll viewport.</td></tr>
+          <tr><td><code>SelectRenderable</code></td><td>The approval choice widget (Allow once / Allow session / Deny).</td></tr>
+          <tr><td><code>KeyHandler</code> / <code>KeyEvent</code></td><td>Global keypress handling for Ctrl-C / Ctrl-D and the <code>y</code>/<code>a</code>/<code>n</code> approval shortcuts.</td></tr>
+        </tbody>
+      </table>
+      <pre><code>import {
+  createCliRenderer,
+  BoxRenderable, TextRenderable, InputRenderable,
+  ScrollBoxRenderable, SelectRenderable,
+  StyledText, createTextAttributes,
+} from "@opentui/core";
+
+const renderer = await createCliRenderer();   // async — note the await
+const root = renderer.root;</code></pre>
+      <div class="note">
+        <span class="label">Composition</span>
+        Renderables form a tree under <code>renderer.root</code>; children are attached via <code>parent.add(child)</code> (parenting). The TUI builds the four-region tree once at startup, then mutates child renderables in place as events arrive — it does not rebuild the tree per frame.
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="layout">
+      <h2><span class="num">03</span> Layout &amp; Regions</h2>
+      <p>The screen is a single column (<code>flexDirection: "column"</code>) of four regions. The header and input are fixed-height; the scrollback grows (<code>flexGrow: 1</code>) to fill the middle; the approval bar is zero-height until an <code>approval.request</code> arrives, then expands.</p>
+      <div class="diagram">┌────────────────────────────────────────────────┐
+│ <b>om-cli</b>  ~/projects/personal/om-cli   <span class="c2">anthropic ·</span>   │  <b>header</b>  (Box, fixed)
+├────────────────────────────────────────────────┤
+│ ▸ you: refactor the parser to handle quotes      │
+│ ▸ om:  Reading the parser…                       │
+│   ┌── <span class="g">read</span> src/parser.ts ───────────────┐       │  <b>scrollback</b>  (ScrollBox,
+│   │ 142 lines                              │       │   flexGrow:1, + tool cards)
+│   └────────────────────────────────────────┘       │
+│   I'll update the tokenizer. Applying edit:        │
+│   ┌── <span class="o">edit</span> src/parser.ts ───────────────┐       │
+│   │ <span class="o">-</span> if (c === '"') …                     │       │
+│   │ <span class="g">+</span> if (c === '"' || c === "'") …        │       │
+│   └────────────────────────────────────────┘       │
+├────────────────────────────────────────────────┤
+│ <span class="o">Allow edit to src/parser.ts?</span>  (y) once (a) session (n) │  <b>approval</b>  (Box+Select,
+├────────────────────────────────────────────────┤   collapsed until needed)
+│ &gt; _                                              │  <b>input</b>  (Input, fixed)
+└────────────────────────────────────────────────┘</div>
+      <table>
+        <thead><tr><th>Region</th><th>Renderable</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Header</td><td><code>BoxRenderable</code> + <code>TextRenderable</code></td><td>cwd, active provider/model, running token usage from the latest <code>turn.done</code>.</td></tr>
+          <tr><td>Scrollback</td><td><code>ScrollBoxRenderable</code></td><td><code>flexGrow: 1</code>. Holds interleaved user/assistant text blocks and tool-card boxes in arrival order.</td></tr>
+          <tr><td>Approval</td><td><code>BoxRenderable</code> + <code>SelectRenderable</code></td><td>Hidden (<code>visible=false</code>) by default; shown on <code>approval.request</code>, hidden again on response.</td></tr>
+          <tr><td>Input</td><td><code>InputRenderable</code></td><td>Focused at idle; blurred while a turn streams; refocused on <code>turn.done</code>.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 4 -->
+    <section id="tree">
+      <h2><span class="num">04</span> Component tree</h2>
+      <p>The tree is built once in the TUI constructor. Region renderables are held as fields so events can mutate them directly. Tool cards are tracked in a <code>Map&lt;string, ToolCard&gt;</code> keyed by the <code>tool.start</code> id, so <code>tool.result</code> can find and update the right card.</p>
+      <pre><code>class TuiFrontend implements Frontend {
+  private renderer!: Awaited&lt;ReturnType&lt;typeof createCliRenderer&gt;&gt;;
+  private header!: BoxRenderable;
+  private scrollback!: ScrollBoxRenderable;
+  private approvalBar!: BoxRenderable;
+  private select!: SelectRenderable;
+  private input!: InputRenderable;
+
+  // live render state (NOT session state)
+  private liveAssistant: TextRenderable | null = null;   // current text.delta target
+  private toolCards = new Map&lt;string, ToolCard&gt;();        // tool.start id → card
+  private pendingApproval: ((d: Decision) =&gt; void) | null = null;
+
+  async mount(): Promise&lt;void&gt; {
+    this.renderer = await createCliRenderer();
+    const root = new BoxRenderable({ flexDirection: "column", flexGrow: 1 });
+
+    this.header = new BoxRenderable({ height: 1, padding: { left: 1, right: 1 } });
+    this.scrollback = new ScrollBoxRenderable({ flexGrow: 1 });
+    this.approvalBar = new BoxRenderable({ visible: false, border: true,
+                                           backgroundColor: "#1c2128" });
+    this.select = new SelectRenderable({
+      options: [
+        { name: "Allow once",    value: "once" },
+        { name: "Allow session", value: "session" },
+        { name: "Deny",          value: "deny" },
+      ],
+    });
+    this.input = new InputRenderable({ placeholder: "Ask om-cli…" });
+
+    this.approvalBar.add(this.select);
+    root.add(this.header);
+    root.add(this.scrollback);
+    root.add(this.approvalBar);
+    root.add(this.input);
+    this.renderer.root.add(root);
+
+    this.input.focus();
+    this.wireKeys();   // §08
+  }
+}
+
+interface ToolCard { box: BoxRenderable; body: TextRenderable; spinner: TextRenderable; }</code></pre>
+      <div class="note">
+        <span class="label">One live block at a time</span>
+        <code>liveAssistant</code> is the <code>TextRenderable</code> currently receiving deltas. It is created lazily on the first <code>text.delta</code> after a tool result or user message, and sealed (set to <code>null</code>) on <code>text.done</code> so the next text run starts a fresh block below any tool cards.
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="events">
+      <h2><span class="num">05</span> Event → render mutation map</h2>
+      <p>The TUI drives a single <code>for await</code> over the core's event stream. Each <code>AgentEvent</code> variant maps to exactly one render mutation. No event mutates session state.</p>
+      <table>
+        <thead><tr><th>AgentEvent</th><th>Render mutation</th></tr></thead>
+        <tbody>
+          <tr><td><code>text.delta {text}</code></td><td>Append <code>text</code> to <code>liveAssistant</code> (creating it if null). No scroll thrash — content grows in place.</td></tr>
+          <tr><td><code>text.done {text}</code></td><td>Seal the block: <code>liveAssistant = null</code> so the next text starts fresh.</td></tr>
+          <tr><td><code>tool.start {id,name,input}</code></td><td>Create a tool-card <code>BoxRenderable</code> (title = name, body = <code>preview(input)</code>), show a spinner, store it in <code>toolCards[id]</code>, append to scrollback.</td></tr>
+          <tr><td><code>tool.result {id,output}</code></td><td>Look up <code>toolCards[id]</code>, stop the spinner, replace body with the (truncated) <code>output.content</code>; border turns red if <code>!output.ok</code>.</td></tr>
+          <tr><td><code>approval.request {id,tool,preview}</code></td><td>Show the approval bar with <code>preview</code>, focus the <code>SelectRenderable</code>, blur input. Resolve the pending decision on choice (<a class="inline" href="#approval">§07</a>).</td></tr>
+          <tr><td><code>turn.done {stopReason,usage}</code></td><td>Update header usage, re-enable + refocus the input, clear any spinner state.</td></tr>
+          <tr><td><code>error {message,fatal}</code></td><td>Append a red error block to scrollback. If <code>fatal</code>, also disable input and surface an exit hint.</td></tr>
+        </tbody>
+      </table>
+      <pre><code>async function consume(events: AsyncIterable&lt;AgentEvent&gt;, tui: TuiFrontend) {
+  for await (const ev of events) {
+    switch (ev.type) {
+      case "text.delta":
+        tui.appendAssistant(ev.text);            // grows liveAssistant
+        break;
+      case "text.done":
+        tui.sealAssistant();                     // liveAssistant = null
+        break;
+      case "tool.start":
+        tui.openToolCard(ev.id, ev.name, ev.input);   // box + spinner
+        break;
+      case "tool.result":
+        tui.closeToolCard(ev.id, ev.output);     // update card in place
+        break;
+      case "approval.request":
+        await tui.askApproval(ev.id, ev.tool, ev.preview);  // §07
+        break;
+      case "turn.done":
+        tui.setUsage(ev.usage);
+        tui.enableInput();                       // refocus prompt
+        break;
+      case "error":
+        tui.appendError(ev.message, ev.fatal);
+        break;
+    }
+  }
+}</code></pre>
+      <h3>Tool card lifecycle</h3>
+      <pre><code>openToolCard(id: string, name: string, input: unknown) {
+  const box = new BoxRenderable({ border: true, title: name,
+                                  flexDirection: "column", padding: 1 });
+  const spinner = new TextRenderable({ content: "⠋ running…",
+                                       attributes: createTextAttributes({ dim: true }) });
+  const body = new TextRenderable({ content: this.previewFor(name, input) });
+  box.add(body); box.add(spinner);
+  this.scrollback.add(box);
+  this.toolCards.set(id, { box, body, spinner });
+}
+
+closeToolCard(id: string, output: ToolResult) {
+  const card = this.toolCards.get(id);
+  if (!card) return;
+  card.spinner.visible = false;                  // stop spinner
+  card.body.content = truncateForCard(output.content);
+  if (!output.ok) card.box.borderColor = "#ff7b72";   // --red on failure
+  this.toolCards.delete(id);
+}</code></pre>
+      <div class="note">
+        <span class="label">bash streaming</span>
+        Per <a class="inline" href="v0.html#tools">v0 §7</a>, the <code>bash</code> tool tails stdout/stderr live. While its card is open, incremental output appends to <code>card.body</code> exactly like <code>text.delta</code> appends to the assistant block, until <code>tool.result</code> seals the final content.
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="input">
+      <h2><span class="num">06</span> Input → core message flow</h2>
+      <p>On <code>onSubmit</code>, the input's value is handed to the core via the <code>onSubmit(text)</code> Frontend callback and the input is cleared and blurred for the duration of the turn. The TUI does <strong>not</strong> append the user message to the session — the core does that, then begins streaming events the TUI renders. This keeps the canonical <a class="inline" href="v0.html#session">message store</a> the single source of truth.</p>
+      <div class="diagram"> <b>InputRenderable</b>.onSubmit(text)
+        │
+        ▼
+ <span class="c2">frontend.onSubmit(text)</span> ─────────▶  <b>Core</b>: session.append(user, text)
+        │  (input cleared, blurred)                  │
+        │                                            ▼
+        │                                   runTurn(session) ──▶ AsyncIterable&lt;AgentEvent&gt;
+        ▼                                            │
+ render echo of user line                           ▼
+ into scrollback (cosmetic)        <span class="g">for await (ev of events) → render</span></div>
+      <pre><code>// in mount(), after constructing this.input:
+this.input.onSubmit = (text: string) =&gt; {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  this.echoUser(trimmed);          // cosmetic scrollback line, NOT session state
+  this.input.value = "";
+  this.input.blur();               // locked while the turn runs
+  this.onSubmit?.(trimmed);        // hand to core via the Frontend callback
+};</code></pre>
+      <div class="note">
+        <span class="label">Echo is cosmetic</span>
+        The user line rendered on submit is a render convenience so the prompt doesn't vanish before the assistant replies. It is independent of the canonical message the core appends. If they ever disagree, the core's store wins (<a class="inline" href="v0.html">v0</a> source-of-truth rule).
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="approval">
+      <h2><span class="num">07</span> Approval-response → core flow</h2>
+      <p>On <code>approval.request</code>, the loop is blocked in the <a class="inline" href="v0.html#permissions">permission gate</a> waiting for a <code>Decision</code>. The TUI shows the approval bar and resolves a promise when the user chooses. The TUI maps the UI choice to the core's <code>Decision</code> shape and sends it back — it never decides anything itself, and a deny still flows back so the core can return a tool result.</p>
+      <pre><code>askApproval(id: string, tool: string, preview: string): Promise&lt;void&gt; {
+  this.approvalBar.title = `Allow ${tool}?`;
+  this.setApprovalPreview(preview);
+  this.approvalBar.visible = true;
+  this.input.blur();
+  this.select.focus();
+
+  return new Promise&lt;void&gt;((resolve) =&gt; {
+    const finish = (decision: Decision) =&gt; {
+      this.approvalBar.visible = false;
+      this.select.blur();
+      this.onApproval?.(id, decision);   // → core gate
+      resolve();
+    };
+    this.select.onSelect = (value: "once" | "session" | "deny") =&gt; {
+      finish(toDecision(value));
+    };
+    this.pendingApproval = finish;   // so y/a/n keys can resolve it too (§08)
+  });
+}
+
+// UI choice → canonical Decision (v0 §8)
+function toDecision(v: "once" | "session" | "deny"): Decision {
+  if (v === "deny")    return { allowed: false, reason: "denied by user" };
+  if (v === "session") return { allowed: true, remember: "session" };
+  return { allowed: true };                    // allow once
+}</code></pre>
+      <p>The three options map directly to the <a class="inline" href="v0.html#permissions">v0 §8</a> approval modal: <strong>Allow once</strong> → <code>{allowed:true}</code>, <strong>Allow session</strong> → <code>{allowed:true, remember:"session"}</code> (the gate then adds a tool+arg-signature entry to the session allowlist), <strong>Deny</strong> → <code>{allowed:false, reason}</code>. On deny the core still returns a tool result ("denied") so every call gets a result (loop invariant, <a class="inline" href="v0.html#loop">v0 §5</a>).</p>
+    </section>
+
+    <!-- 8 -->
+    <section id="keys">
+      <h2><span class="num">08</span> Keybindings</h2>
+      <p>A single <code>KeyHandler</code> intercepts control keys globally; context decides what fires. Plain typing flows to the focused <code>InputRenderable</code> untouched.</p>
+      <table>
+        <thead><tr><th>Key</th><th>Context</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td><code>Enter</code></td><td>Input focused</td><td>Submit (<code>InputRenderable.onSubmit</code>) → <code>frontend.onSubmit(text)</code>.</td></tr>
+          <tr><td><code>Ctrl-C</code></td><td>Turn active</td><td>Fire the current turn's <code>AbortController.abort()</code>; the signal unwinds the provider stream + <code>Bun.spawn</code>.</td></tr>
+          <tr><td><code>Ctrl-C</code></td><td>Idle (no active turn)</td><td>Clear the input line; a second press exits (mirrors common shell behavior).</td></tr>
+          <tr><td><code>Ctrl-D</code></td><td>Empty input</td><td>Exit: <code>frontend.dispose()</code> then process exit.</td></tr>
+          <tr><td><code>y</code></td><td>Approval shown</td><td>Allow once → resolve pending decision.</td></tr>
+          <tr><td><code>a</code></td><td>Approval shown</td><td>Allow session → resolve pending decision.</td></tr>
+          <tr><td><code>n</code></td><td>Approval shown</td><td>Deny → resolve pending decision.</td></tr>
+        </tbody>
+      </table>
+      <pre><code>wireKeys() {
+  this.renderer.keyHandler.on("keypress", (ev: KeyEvent) =&gt; {
+    // approval has priority: y/a/n resolve the blocked gate
+    if (this.pendingApproval) {
+      if (ev.name === "y") return this.pendingApproval(toDecision("once"));
+      if (ev.name === "a") return this.pendingApproval(toDecision("session"));
+      if (ev.name === "n") return this.pendingApproval(toDecision("deny"));
+    }
+    if (ev.ctrl &amp;&amp; ev.name === "c") {
+      if (this.activeAbort) this.activeAbort.abort();   // interrupt the turn
+      else this.input.value = "";                        // idle: clear line
+      return;
+    }
+    if (ev.ctrl &amp;&amp; ev.name === "d" &amp;&amp; this.input.value === "") {
+      this.dispose();                                     // Ctrl-D exit
+      process.exit(0);
+    }
+  });
+}</code></pre>
+      <div class="note">
+        <span class="label">Abort ownership</span>
+        The TUI holds the <code>AbortController</code> for the in-flight turn and passes its <code>signal</code> into the core when calling <code>submit</code>. On abort the core emits a synthetic interrupted tool result and a <code>turn.done</code>; the TUI then re-enables input as usual. The TUI never tears down state on its own — it waits for <code>turn.done</code>.
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="frontend">
+      <h2><span class="num">09</span> The shared Frontend interface</h2>
+      <p>Both frontends — the OpenTUI <code>TuiFrontend</code> and the headless <code>StdoutFrontend</code> — implement one interface so <a class="inline" href="v0.html#config">main.ts</a> can choose at boot without the core knowing which is live. The core depends only on this interface, not on OpenTUI.</p>
+      <pre><code>interface Frontend {
+  /** Prepare the frontend (TUI: await createCliRenderer; stdout: no-op). */
+  mount(): Promise&lt;void&gt;;
+
+  /** Render a stream of core events to completion (one turn). */
+  render(events: AsyncIterable&lt;AgentEvent&gt;): Promise&lt;void&gt;;
+
+  /** Core → frontend: register the callbacks the frontend invokes. */
+  onSubmit?: (text: string, signal: AbortSignal) =&gt; void;
+  onApproval?: (id: string, decision: Decision) =&gt; void;
+
+  /** Tear down (TUI: restore terminal; stdout: flush). */
+  dispose(): Promise&lt;void&gt;;
+}</code></pre>
+      <p>The wiring in <code>main.ts</code> stays frontend-agnostic. The driver loop reads user input from the frontend, asks the core for an event stream, and hands it back to the frontend to render:</p>
+      <pre><code>// main.ts — picks a frontend, never imports OpenTUI types directly
+const frontend: Frontend = useTui ? new TuiFrontend() : new StdoutFrontend();
+await frontend.mount();
+
+frontend.onSubmit = async (text, signal) =&gt; {
+  session.append({ role: "user", content: text });   // core owns the store
+  await frontend.render(runTurn(session, { signal })); // §05 consumer
+};
+frontend.onApproval = (id, decision) =&gt; gate.resolve(id, decision);</code></pre>
+      <div class="note scope">
+        <span class="label">Why one interface</span>
+        Keeping <code>Frontend</code> tiny is what lets v0 build the loop headless (M1–M4) and swap in the TUI at M5 (<a class="inline" href="roadmap.html">milestones</a>, <a class="inline" href="v0.html#milestones">v0 §12</a>) without touching the core or providers.
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="headless">
+      <h2><span class="num">10</span> Headless stdout fallback</h2>
+      <p>The headless frontend is the M1–M4 frontend and the permanent debug/CI path. It implements the same <code>Frontend</code> interface using only <code>process.stdout</code> / <code>process.stdin</code> — no OpenTUI, no alt-screen — so the agent loop, providers, tools, and permission gate can be proven before any terminal rendering exists.</p>
+      <pre><code>class StdoutFrontend implements Frontend {
+  onSubmit?: (text: string, signal: AbortSignal) =&gt; void;
+  onApproval?: (id: string, decision: Decision) =&gt; void;
+
+  async mount() {
+    process.stdin.setRawMode?.(false);
+    this.prompt();                                  // print "&gt; "
+    for await (const line of console) {             // Bun line reader
+      const ctrl = new AbortController();
+      this.onSubmit?.(line.trim(), ctrl.signal);
+    }
+  }
+
+  async render(events: AsyncIterable&lt;AgentEvent&gt;) {
+    for await (const ev of events) {
+      switch (ev.type) {
+        case "text.delta":  process.stdout.write(ev.text); break;
+        case "text.done":   process.stdout.write("\n"); break;
+        case "tool.start":  console.log(`\n[tool] ${ev.name} ${JSON.stringify(ev.input)}`); break;
+        case "tool.result": console.log(`[result] ${ev.output.ok ? "ok" : "ERR"}: ` +
+                                        truncate(ev.output.content)); break;
+        case "approval.request": {
+          // synchronous prompt on stdin: y / a / n
+          const ans = await this.readKey(`Allow ${ev.tool}? [y/a/n] `);
+          this.onApproval?.(ev.id, toDecision(
+            ans === "a" ? "session" : ans === "y" ? "once" : "deny"));
+          break;
+        }
+        case "turn.done":   console.log(`\n[done] ${ev.stopReason}  ` +
+                                        `${ev.usage.input}/${ev.usage.output} tok`); break;
+        case "error":       console.error(`[error] ${ev.message}`); break;
+      }
+    }
+    this.prompt();
+  }
+
+  async dispose() { /* nothing to restore */ }
+}</code></pre>
+      <p>The two frontends share <code>toDecision()</code> and <code>truncate()</code> helpers and render the identical event set — they differ only in how they paint it. That symmetry is the test: if a turn behaves correctly under <code>StdoutFrontend</code>, the TUI is purely a rendering concern on top.</p>
+    </section>
+
+    <!-- 11 -->
+    <section id="perf">
+      <h2><span class="num">11</span> Open question — scrollback performance</h2>
+      <div class="note defer">
+        <span class="label">Open · validate at M5</span>
+        Carried from <a class="inline" href="v0.html#open">v0 §13</a>: does OpenTUI's reactivity handle a long, continuously mutating scrollback efficiently, or do we need windowed rendering early? A long coding session can accumulate hundreds of text blocks and tool cards under one <code>ScrollBoxRenderable</code>.
+      </div>
+      <p>The plan is to build M5 against the naive "append every block as a child" model and measure. If frame cost grows with total scrollback size rather than visible viewport, we fall back to <strong>windowing</strong>:</p>
+      <ul>
+        <li><strong>Virtualize the viewport.</strong> Keep the full conversation in a plain in-memory array of render descriptors; only mount the <code>BoxRenderable</code>/<code>TextRenderable</code> children that fall in (or near) the visible scroll window, mounting/unmounting as the user scrolls.</li>
+        <li><strong>Cap mounted tool cards.</strong> Collapse older completed tool cards to a one-line summary renderable; expand on demand.</li>
+        <li><strong>Coalesce deltas.</strong> Batch rapid <code>text.delta</code> appends within a frame instead of mutating the live block per token, to bound re-layout cost.</li>
+      </ul>
+      <p>Windowing is a fallback, not a v0 commitment — it lands only if measurement at M5 shows the naive model degrades. The <code>Frontend</code> interface and the event→mutation map (<a class="inline" href="#events">§05</a>) are unaffected either way; windowing is internal to <code>TuiFrontend</code>.</p>
+    </section>
+
+    <footer>
+      om-cli · tui spec · drafted 2026-05-30 · elaborates v0 §10 · expect churn
+    </footer>
+  </main>
+</div>
+</body>
+</html>

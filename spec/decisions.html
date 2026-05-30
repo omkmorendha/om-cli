@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>om-cli — Decision Log (ADR-style)</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg-elev: #161b22; --bg-code: #1c2128; --border: #30363d;
+    --fg: #e6edf3; --fg-dim: #9da7b3; --fg-faint: #6e7681; --accent: #d2a8ff;
+    --accent-2: #79c0ff; --green: #7ee787; --orange: #ffa657; --red: #ff7b72;
+    --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.65; font-size: 16px; }
+  .wrap { display: grid; grid-template-columns: 260px 1fr; max-width: 1400px; margin: 0 auto; }
+  nav { position: sticky; top: 0; height: 100vh; overflow-y: auto; border-right: 1px solid var(--border); padding: 28px 20px; background: var(--bg-elev); }
+  nav .brand { font-family: var(--mono); font-weight: 700; font-size: 18px; color: var(--accent); letter-spacing: -0.5px; }
+  nav .brand .v { color: var(--fg-faint); font-weight: 400; font-size: 13px; }
+  nav ol { list-style: none; padding: 0; margin: 24px 0 0; counter-reset: sec; }
+  nav ol li { counter-increment: sec; margin: 2px 0; }
+  nav ol li a { display: block; color: var(--fg-dim); text-decoration: none; font-size: 14px; padding: 5px 10px; border-radius: 6px; transition: all .12s; }
+  nav ol li a::before { content: counter(sec) ".  "; color: var(--fg-faint); font-family: var(--mono); font-size: 12px; }
+  nav ol li a:hover { background: var(--bg-code); color: var(--fg); }
+  main { padding: 48px 56px 120px; max-width: 920px; }
+  header.hero { margin-bottom: 56px; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
+  header.hero h1 { font-family: var(--mono); font-size: 38px; margin: 0 0 8px; letter-spacing: -1px; }
+  header.hero .tag { color: var(--fg-dim); font-size: 18px; margin: 0; }
+  .pills { margin-top: 22px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { font-family: var(--mono); font-size: 12px; padding: 4px 11px; border-radius: 999px; background: var(--bg-code); border: 1px solid var(--border); color: var(--accent-2); }
+  .pill.alt { color: var(--green); } .pill.warn { color: var(--orange); }
+  section { margin-bottom: 56px; scroll-margin-top: 24px; }
+  h2 { font-size: 26px; margin: 0 0 18px; letter-spacing: -0.4px; display: flex; align-items: baseline; gap: 12px; }
+  h2 .num { font-family: var(--mono); font-size: 15px; color: var(--accent); }
+  h3 { font-size: 18px; margin: 30px 0 10px; color: var(--fg); }
+  h4 { font-size: 15px; margin: 22px 0 8px; color: var(--accent-2); font-family: var(--mono); }
+  p { color: var(--fg-dim); } p strong, li strong { color: var(--fg); }
+  ul, ol.body { color: var(--fg-dim); padding-left: 22px; } li { margin: 5px 0; }
+  code { font-family: var(--mono); background: var(--bg-code); padding: 1.5px 6px; border-radius: 5px; font-size: 13.5px; color: var(--accent); }
+  pre { background: var(--bg-code); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; overflow-x: auto; font-size: 13px; line-height: 1.55; }
+  pre code { background: none; padding: 0; color: var(--fg); }
+  .lead { font-size: 17px; color: var(--fg-dim); }
+  .note { border-left: 3px solid var(--accent-2); background: rgba(121,192,255,.07); padding: 12px 18px; border-radius: 0 8px 8px 0; margin: 18px 0; }
+  .note.scope { border-color: var(--green); background: rgba(126,231,135,.07); }
+  .note.defer { border-color: var(--orange); background: rgba(255,166,87,.07); }
+  .note .label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--fg-faint); display: block; margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--fg-faint); font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+  td { color: var(--fg-dim); } td code { font-size: 12.5px; }
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 10px; padding: 22px; margin: 18px 0; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: var(--fg-dim); white-space: pre; overflow-x: auto; }
+  .diagram b { color: var(--accent); } .diagram .c2 { color: var(--accent-2); } .diagram .g { color: var(--green); } .diagram .o { color: var(--orange); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+  .card h4 { margin-top: 0; }
+  .checklist { list-style: none; padding: 0; }
+  .checklist li { padding-left: 28px; position: relative; }
+  .checklist li::before { content: "▢"; position: absolute; left: 4px; color: var(--fg-faint); font-family: var(--mono); }
+  .checklist li.done::before { content: "▣"; color: var(--green); }
+  footer { color: var(--fg-faint); font-size: 13px; border-top: 1px solid var(--border); padding-top: 20px; margin-top: 60px; font-family: var(--mono); }
+  a.inline { color: var(--accent-2); }
+  @media (max-width: 880px) { .wrap { grid-template-columns: 1fr; } nav { position: relative; height: auto; } main { padding: 32px 24px 80px; } .grid2 { grid-template-columns: 1fr; } }
+
+  /* --- decision-log-specific helpers (layout only; no new design tokens) --- */
+  .page { max-width: 960px; margin: 0 auto; padding: 56px 40px 120px; }
+  .backlink { font-family: var(--mono); font-size: 12px; color: var(--fg-faint); text-decoration: none; display: inline-block; margin-bottom: 18px; }
+  .backlink:hover { color: var(--accent-2); }
+  .adr { margin-bottom: 26px; scroll-margin-top: 24px; }
+  .adr .head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .adr .id { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+  .adr .title { font-size: 18px; color: var(--fg); margin: 2px 0 0; }
+  .adr .field { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--fg-faint); display: block; margin: 14px 0 2px; }
+  .adr p { margin: 4px 0 0; }
+  .status { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+  .status.accepted { color: var(--green); background: rgba(126,231,135,.12); border: 1px solid rgba(126,231,135,.3); }
+  .status.open { color: var(--orange); background: rgba(255,166,87,.1); border: 1px solid rgba(255,166,87,.25); }
+  .opt { list-style: none; padding-left: 0; margin: 4px 0 0; }
+  .opt li { padding-left: 22px; position: relative; }
+  .opt li::before { content: "·"; position: absolute; left: 6px; color: var(--fg-faint); font-family: var(--mono); }
+  .opt li.chosen::before { content: "✓"; color: var(--green); }
+  .opt li.chosen strong { color: var(--green); }
+</style>
+</head>
+<body>
+  <div class="page">
+    <a class="backlink" href="index.html">↑ Spec Index</a>
+    <header class="hero">
+      <h1>Decision Log</h1>
+      <p class="tag">ADR-style record of the significant choices behind om-cli — the options weighed, what was decided, and what it costs us.</p>
+      <div class="pills">
+        <span class="pill alt">8 entries</span>
+        <span class="pill">7 accepted</span>
+        <span class="pill warn">1 open</span>
+      </div>
+    </header>
+
+    <section>
+      <p class="lead">Each entry below is a lightweight Architecture Decision Record: <strong>Context</strong> (the forces in play), <strong>Options considered</strong>, the <strong>Decision</strong>, its <strong>Consequences</strong>, and a <strong>Status</strong> of <em>Accepted</em> or <em>Open</em>. Entries are numbered <code>ADR-NNN</code> and are append-only — the canonical "what is true now" view lives in <a class="inline" href="v0.html#open">v0 §13</a>; this page is the narrative of <em>how we got there</em>.</p>
+      <div class="note scope">
+        <span class="label">How to use this log</span>
+        <p style="margin:0;">New decisions are <strong>appended</strong> here as the project evolves — never rewritten in place. To reverse a decision, add a new ADR that supersedes the old one and flip the old entry's status to <em>Superseded</em> with a back-reference. This preserves the historical reasoning, which is the whole point of an ADR log.</p>
+      </div>
+    </section>
+
+    <!-- ADR-001 -->
+    <section class="adr" id="adr-001">
+      <div class="head">
+        <div>
+          <span class="id">ADR-001</span>
+          <h3 class="title">Use zod for tool input schemas (over valibot)</h3>
+        </div>
+        <span class="status accepted">Accepted</span>
+      </div>
+
+      <span class="field">Context</span>
+      <p>Every tool declares its input shape once, and that shape serves two masters: runtime validation of model-produced arguments before <code>run()</code> executes, and the JSON Schema sent to the provider so the model knows the tool's signature. We wanted a single source of truth — <code>schema: ZodSchema&lt;I&gt;</code> on the <code>Tool&lt;I&gt;</code> interface — that covers both without hand-writing JSON Schema.</p>
+
+      <span class="field">Options considered</span>
+      <ul class="opt">
+        <li class="chosen"><strong>zod 4</strong> — mature, familiar; ships <code>z.toJSONSchema()</code> so the model-facing schema is derived, not duplicated.</li>
+        <li><strong>valibot</strong> — smaller bundle and faster cold start via modular imports, but a less direct JSON Schema story and less ecosystem familiarity for this team.</li>
+        <li><strong>Hand-written JSON Schema + a thin runtime validator</strong> — zero schema-lib dependency, but two artifacts to keep in sync per tool and easy to drift.</li>
+      </ul>
+
+      <span class="field">Decision</span>
+      <p>Adopt <strong>zod 4</strong>. Tool authors write one <code>ZodSchema</code>; <code>z.toJSONSchema</code> produces the provider-facing schema (Anthropic <code>input_schema</code> / OpenAI <code>tools[].function.parameters</code> — see <a class="inline" href="providers.html">providers.html</a>), and the same schema validates the model's arguments at the permission/execution boundary.</p>
+
+      <span class="field">Consequences</span>
+      <ul>
+        <li>Bun startup carries zod's parse/registration cost on every launch. Measured and deemed acceptable for a CLI; revisit only if cold start becomes a complaint.</li>
+        <li>Schema derivation must round-trip cleanly to both providers' JSON Schema dialects; the provider adapters own any per-provider quirk (e.g. unsupported keywords), not the tools.</li>
+        <li>If startup cost ever dominates, valibot remains a drop-in candidate behind the same <code>schema</code> field — the <code>Tool</code> interface does not leak zod beyond the type.</li>
+      </ul>
+      <p style="margin-top:8px;"><span class="field" style="display:inline;margin:0;">See</span> <a class="inline" href="tools.html">tools.html</a>, <a class="inline" href="v0.html#stack">v0 §3 Tech Stack</a>.</p>
+    </section>
+
+    <!-- ADR-002 -->
+    <section class="adr" id="adr-002">
+      <div class="head">
+        <div>
+          <span class="id">ADR-002</span>
+          <h3 class="title">OpenAI integration via the Responses API (over Chat Completions)</h3>
+        </div>
+        <span class="status accepted">Accepted</span>
+      </div>
+
+      <span class="field">Context</span>
+      <p>The core consumes one <code>Provider</code> interface that streams a normalized <code>ProviderEvent</code> union (<code>text.delta</code>, <code>tool_call</code>, <code>done</code>). The Anthropic side is the Messages API; we needed an OpenAI surface whose streaming and tool-call shape map cleanly onto that union with the least adapter friction.</p>
+
+      <span class="field">Options considered</span>
+      <ul class="opt">
+        <li class="chosen"><strong>Responses API</strong> — output-item model (<code>function_call</code> items, <code>response.output_text.delta</code> / <code>function_call_arguments.delta</code> stream events) lines up with our event union and our normalization map.</li>
+        <li><strong>Chat Completions</strong> — ubiquitous and well-trodden, but its <code>tool_calls</code> delta-accumulation and message-role conventions are a noisier fit for the streaming tool-call model we already built for Anthropic.</li>
+      </ul>
+
+      <span class="field">Decision</span>
+      <p>Use the <strong>OpenAI Responses API</strong> behind the <code>Provider</code> interface. The adapter maps <code>instructions</code>↔<code>system</code>, <code>function_call</code> output items↔<code>tool_use</code> blocks, <code>function_call_output</code>↔<code>tool_result</code>, and the respective streaming delta events into our internal types.</p>
+
+      <span class="field">Consequences</span>
+      <ul>
+        <li>The full normalization table (see <a class="inline" href="v0.html#provider">v0 §6</a> and <a class="inline" href="providers.html">providers.html</a>) is authored against Responses semantics; switching to Chat Completions later would mean a second adapter, not a tweak.</li>
+        <li>Responses' optional server-side state (<code>store</code> / <code>previous_response_id</code>) is a live design choice — tracked separately in <a class="inline" href="#adr-007">ADR-007</a>.</li>
+      </ul>
+      <p style="margin-top:8px;"><span class="field" style="display:inline;margin:0;">See</span> <a class="inline" href="providers.html">providers.html</a>, <a class="inline" href="v0.html#provider">v0 §6 Provider Layer</a>.</p>
+    </section>
+
+    <!-- ADR-003 -->
+    <section class="adr" id="adr-003">
+      <div class="head">
+        <div>
+          <span class="id">ADR-003</span>
+          <h3 class="title">Defer parallel tool calls; serialize tool execution in v0</h3>
+        </div>
+        <span class="status accepted">Accepted</span>
+      </div>
+
+      <span class="field">Context</span>
+      <p>Both providers can emit multiple tool calls in a single assistant turn. Executing them concurrently is tempting for latency, but it collides with two v0 invariants: every call must produce a result, and write/exec calls each route through a human approval prompt. Concurrent approvals and concurrent side effects are hard to reason about before the basic loop is proven.</p>
+
+      <span class="field">Options considered</span>
+      <ul class="opt">
+        <li class="chosen"><strong>Sequential execution</strong> — run tool calls one at a time in emission order; each gets its own approval (if needed) and result before the next starts.</li>
+        <li><strong>Parallel execution with a concurrency gate</strong> — faster for independent reads, but needs an approval-ordering policy and careful interleaving of <code>tool.start</code> / <code>approval.request</code> / <code>tool.result</code> events.</li>
+      </ul>
+
+      <span class="field">Decision</span>
+      <p>v0 <strong>serializes tool execution</strong>. The loop processes tool calls in order; the <code>AgentEvent</code> stream stays linear and the approval modal handles one request at a time.</p>
+
+      <span class="field">Consequences</span>
+      <ul>
+        <li>Simpler loop and TUI: a single in-flight tool card, deterministic event ordering, trivial <code>AbortSignal</code> unwind.</li>
+        <li>Latency cost when the model batches independent reads (e.g. several <code>glob</code>/<code>read</code> calls). Acceptable for v0.</li>
+        <li>Revisit once the loop + approval ordering are proven — likely first for the auto-allow <code>read</code> class, where no approval interleaving is required.</li>
+      </ul>
+      <p style="margin-top:8px;"><span class="field" style="display:inline;margin:0;">See</span> <a class="inline" href="v0.html#loop">v0 §5 Agent Loop</a> (loop invariants), <a class="inline" href="roadmap.html">roadmap.html</a>.</p>
+    </section>
+
+    <!-- ADR-004 -->
+    <section class="adr" id="adr-004">
+      <div class="head">
+        <div>
+          <span class="id">ADR-004</span>
+          <h3 class="title">Exact-string edit for v0 (over line-range and unified-diff)</h3>
+        </div>
+        <span class="status accepted">Accepted</span>
+      </div>
+
+      <span class="field">Context</span>
+      <p>The agent needs to modify files. The edit primitive's failure mode matters more than its expressiveness: a wrong edit that silently corrupts a file is far worse than one that errors and asks the model to retry. We need something deterministic with zero fuzzy-applier complexity for v0.</p>
+
+      <span class="field">Options considered</span>
+      <ul class="opt">
+        <li class="chosen"><strong>Exact-string replacement</strong> — <code>old_string</code> must match <em>uniquely</em> in a file that was <em>read this session</em>; otherwise the tool errors and asks the model to add surrounding context. Full-file create/rewrite goes through <code>write</code>.</li>
+        <li><strong>Unified-diff / patch application</strong> — expressive and reviewable, but needs a (often fuzzy) patch applier and a review surface to be worthwhile.</li>
+        <li><strong>Line-range editing</strong> — rejected outright: line numbers drift across multi-edit turns, inviting silent corruption.</li>
+      </ul>
+
+      <span class="field">Decision</span>
+      <p>v0 ships <strong>exact-string <code>edit</code></strong> (unique match, must-have-read) plus full-file <code>write</code>. Unified-diff is the post-v0 path, and it lands <em>together with</em> the diff review UI — the diff format and the review surface are the same artifact, so building a patch applier before the loop is even proven is the wrong order.</p>
+
+      <span class="field">Consequences</span>
+      <ul>
+        <li>Deterministic edits; the failure mode is a clean retry, not corruption.</li>
+        <li>"Must have been read this session" couples <code>edit</code> to read-state the session must track — a small bit of bookkeeping in <a class="inline" href="tools.html">the tools layer</a>.</li>
+        <li>Multi-occurrence targets force the model to widen context, costing a round-trip; accepted as the safe default.</li>
+        <li>The unified-diff migration is gated on the diff review UI shipping — see <a class="inline" href="roadmap.html">roadmap.html</a>.</li>
+      </ul>
+      <p style="margin-top:8px;"><span class="field" style="display:inline;margin:0;">See</span> <a class="inline" href="tools.html">tools.html</a>, <a class="inline" href="v0.html#tools">v0 §7 Tools</a>.</p>
+    </section>
+
+    <!-- ADR-005 -->
+    <section class="adr" id="adr-005">
+      <div class="head">
+        <div>
+          <span class="id">ADR-005</span>
+          <h3 class="title">No project-root path jail in v0</h3>
+        </div>
+        <span class="status accepted">Accepted</span>
+      </div>
+
+      <span class="field">Context</span>
+      <p>A coding agent reads and writes files and runs shell commands. The obvious safety reflex is to confine it to the project root. But a path jail is both leaky (symlinks, <code>..</code>, absolute paths, <code>bash</code> reaching anywhere) and frequently wrong for real work (reading <code>~/.config</code>, editing a sibling repo). We needed a boundary we could actually trust.</p>
+
+      <span class="field">Options considered</span>
+      <ul class="opt">
+        <li class="chosen"><strong>No path jail; the approval prompt is the boundary.</strong> Coarse permission classes — <code>read</code> auto-allows, <code>write</code> and <code>exec</code> prompt — with the human deciding on real, previewed operations.</li>
+        <li><strong>Project-root jail</strong> — feels safe but gives false confidence (trivially bypassed via <code>bash</code>) while blocking legitimate cross-tree work.</li>
+        <li><strong>Per-path write scopes / command sandboxing</strong> — stronger, but argument parsing and sandboxing are a project of their own. Deferred to post-v0.</li>
+      </ul>
+
+      <span class="field">Decision</span>
+      <p>v0 has <strong>no project-root path jail</strong>. Safety comes from the permission classes plus the approval modal (<em>Allow once / Allow session / Deny</em>), with a session allowlist keyed by tool + argument signature. A denied call still returns a tool result so the loop stays well-formed.</p>
+
+      <span class="field">Consequences</span>
+      <ul>
+        <li>Honest boundary: the user approves the actual previewed write/exec, rather than trusting a guard that <code>bash</code> sidesteps anyway.</li>
+        <li>More approval prompts in unconfigured sessions; mitigated by <em>Allow session</em> and config pre-allow (<code>permissions.autoAllow</code> / <code>allowCommands</code>).</li>
+        <li>Fine-grained per-path scopes, command-argument sandboxing, and a read-only "plan mode" are explicitly post-v0 (<a class="inline" href="roadmap.html">roadmap.html</a>).</li>
+      </ul>
+      <p style="margin-top:8px;"><span class="field" style="display:inline;margin:0;">See</span> <a class="inline" href="v0.html#permissions">v0 §8 Permissions</a>, <a class="inline" href="tools.html">tools.html</a>.</p>
+    </section>
+
+    <!-- ADR-006 -->
+    <section class="adr" id="adr-006">
+      <div class="head">
+        <div>
+          <span class="id">ADR-006</span>
+          <h3 class="title">OpenTUI as the terminal front end</h3>
+        </div>
+        <span class="status accepted">Accepted</span>
+      </div>
+
+      <span class="field">Context</span>
+      <p>The core is deliberately UI-agnostic: it emits a typed <code>AgentEvent</code> async-iterable and consumes user input plus approval responses. The front end's job is to render streaming text, tool cards, and the approval bar, and to feed input back. We needed a terminal UI approach that fits a single Bun process and a reactive, mutating scrollback.</p>
+
+      <span class="field">Options considered</span>
+      <ul class="opt">
+        <li class="chosen"><strong>OpenTUI</strong> (<code>@opentui/core</code> 0.3.0) — component-based terminal rendering with reactive scrollback and input, aligned with the event-stream model.</li>
+        <li><strong>Hand-rolled ANSI / raw-mode rendering</strong> — maximal control, maximal effort; reinvents layout, scrollback, and input handling.</li>
+        <li><strong>An Ink/React-style stack</strong> — familiar component model but a heavier runtime and a less natural fit for the Bun-native bias.</li>
+      </ul>
+
+      <span class="field">Decision</span>
+      <p>Use <strong>OpenTUI</strong> for the TUI layer. Per the milestone plan, the core is built <em>headless first</em> (<a class="inline" href="#adr-008">ADR-008</a>) and OpenTUI is swapped in at <strong>M5</strong> over the proven event stream — making M5 the v0 definition of done.</p>
+
+      <span class="field">Consequences</span>
+      <ul>
+        <li>The TUI consumes the same <code>AgentEvent</code> stream the headless harness already exercises; the front end is additive, not a rewrite.</li>
+        <li>OpenTUI's handling of a long, mutating scrollback is unproven for us — captured as the open question in <a class="inline" href="#adr-007">the open set</a> / <a class="inline" href="v0.html#open">v0 §13</a>, to validate at M5.</li>
+      </ul>
+      <p style="margin-top:8px;"><span class="field" style="display:inline;margin:0;">See</span> <a class="inline" href="tui.html">tui.html</a>, <a class="inline" href="v0.html#tui">v0 §10 TUI Layer</a>, <a class="inline" href="v0.html#arch">v0 §4 Architecture</a>.</p>
+    </section>
+
+    <!-- ADR-007 -->
+    <section class="adr" id="adr-007">
+      <div class="head">
+        <div>
+          <span class="id">ADR-007</span>
+          <h3 class="title">Own conversation state; canonical internal message store (<code>store:false</code>)</h3>
+        </div>
+        <span class="status open">Open</span>
+      </div>
+
+      <span class="field">Context</span>
+      <p>om-cli keeps a canonical internal <code>Message[]</code> store; per-provider adapters serialize it to wire format and parse the stream back. Anthropic resends full <code>messages[]</code> each turn. OpenAI's Responses API offers a choice: resend full <code>input[]</code> with <code>store:false</code> (we own state), or lean on server-side state via <code>previous_response_id</code>.</p>
+
+      <span class="field">Options considered</span>
+      <ul class="opt">
+        <li class="chosen"><strong>Own state, <code>store:false</code></strong> — the internal store stays authoritative for both providers; conversation history is identical regardless of who answers; transcript JSONL stays the single record of truth.</li>
+        <li><strong>OpenAI <code>previous_response_id</code></strong> — smaller request payloads and server-managed continuity, but it makes OpenAI a stateful special case, splits the source of truth, and complicates provider-swapping mid-session.</li>
+      </ul>
+
+      <span class="field">Decision</span>
+      <p><strong>Leaning toward owning state</strong> with <code>store:false</code> — to be confirmed at <strong>M4</strong> (when the OpenAI provider lands). This keeps the canonical store authoritative, providers swappable, and the transcript complete. Status remains <em>Open</em> until validated against real Responses behavior and payload-size limits.</p>
+
+      <span class="field">Consequences</span>
+      <ul>
+        <li>Larger requests (full history every turn) on the OpenAI side — the same cost we already pay on Anthropic, so no new pattern to maintain.</li>
+        <li>One conversation model, one transcript, clean mid-session provider swaps; no divergence between a local store and a server-held thread.</li>
+        <li><strong>If confirmed</strong>, this folds into <a class="inline" href="#adr-002">ADR-002</a> and the provider layer as settled behavior; <strong>if reversed</strong>, a new ADR will record the move to server-side state.</li>
+      </ul>
+      <p style="margin-top:8px;"><span class="field" style="display:inline;margin:0;">See</span> <a class="inline" href="v0.html#open">v0 §13 (Still open)</a>, <a class="inline" href="providers.html">providers.html</a>, <a class="inline" href="v0.html#session">v0 §9 Sessions &amp; Context</a>.</p>
+    </section>
+
+    <!-- ADR-008 -->
+    <section class="adr" id="adr-008">
+      <div class="head">
+        <div>
+          <span class="id">ADR-008</span>
+          <h3 class="title">Build the core headless before the TUI</h3>
+        </div>
+        <span class="status accepted">Accepted</span>
+      </div>
+
+      <span class="field">Context</span>
+      <p>The riskiest parts of om-cli are the agent loop, the provider normalization, and the permission gate — not the rendering. Coupling the loop's correctness to a terminal UI would make those hard parts harder to test and slower to iterate. The architecture already separates a UI-agnostic core (emits <code>AgentEvent</code>) from any consumer.</p>
+
+      <span class="field">Options considered</span>
+      <ul class="opt">
+        <li class="chosen"><strong>Headless core first, TUI last.</strong> Prove the loop, both providers, tools, and permissions against the raw <code>AgentEvent</code> stream (milestones M0–M4), then add OpenTUI at M5.</li>
+        <li><strong>TUI-first / co-developed</strong> — earlier visual feedback, but loop bugs and rendering bugs tangle together and the event contract gets shaped by the UI instead of the other way around.</li>
+      </ul>
+
+      <span class="field">Decision</span>
+      <p>Build <strong>core headless first</strong>. The <code>AgentEvent</code> async-iterable is the contract; a minimal headless consumer drives development through M0–M4, and OpenTUI is swapped in at <strong>M5 = v0 done</strong> (<a class="inline" href="#adr-006">ADR-006</a>).</p>
+
+      <span class="field">Consequences</span>
+      <ul>
+        <li>The event contract is designed for correctness and testability, not for one renderer — the TUI is a clean consumer of a stable stream.</li>
+        <li>Loop, provider, and permission logic are testable headlessly (script a consumer, assert the event sequence) without a terminal harness.</li>
+        <li>No interactive UI until M5; early milestones are validated programmatically, which is a feature, not a gap.</li>
+      </ul>
+      <p style="margin-top:8px;"><span class="field" style="display:inline;margin:0;">See</span> <a class="inline" href="v0.html#milestones">v0 §12 Milestones</a>, <a class="inline" href="v0.html#arch">v0 §4 Architecture</a>, <a class="inline" href="roadmap.html">roadmap.html</a>.</p>
+    </section>
+
+    <!-- Status summary -->
+    <section>
+      <h2><span class="num">ADR</span> Status at a glance</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Decision</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td><a class="inline" href="#adr-001">ADR-001</a></td><td>zod for tool input schemas</td><td><span class="status accepted">Accepted</span></td></tr>
+          <tr><td><a class="inline" href="#adr-002">ADR-002</a></td><td>OpenAI Responses API</td><td><span class="status accepted">Accepted</span></td></tr>
+          <tr><td><a class="inline" href="#adr-003">ADR-003</a></td><td>Parallel tool calls deferred (serialize in v0)</td><td><span class="status accepted">Accepted</span></td></tr>
+          <tr><td><a class="inline" href="#adr-004">ADR-004</a></td><td>Exact-string edit (+ <code>write</code>)</td><td><span class="status accepted">Accepted</span></td></tr>
+          <tr><td><a class="inline" href="#adr-005">ADR-005</a></td><td>No project-root path jail</td><td><span class="status accepted">Accepted</span></td></tr>
+          <tr><td><a class="inline" href="#adr-006">ADR-006</a></td><td>OpenTUI as the front end</td><td><span class="status accepted">Accepted</span></td></tr>
+          <tr><td><a class="inline" href="#adr-007">ADR-007</a></td><td>Own conversation state (<code>store:false</code>)</td><td><span class="status open">Open</span> — leaning own-state, confirm at M4</td></tr>
+          <tr><td><a class="inline" href="#adr-008">ADR-008</a></td><td>Build core headless before TUI</td><td><span class="status accepted">Accepted</span></td></tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <span class="label">Appending a new decision</span>
+        <p style="margin:0;">Use the next free <code>ADR-NNN</code>, add a <code>&lt;section class="adr"&gt;</code> with the five fields (Context, Options considered, Decision, Consequences, Status), and add a row to this table. If the new ADR supersedes an older one, link both ways and mark the older entry <em>Superseded</em>. Keep this page consistent with <a class="inline" href="v0.html#open">v0 §13</a>.</p>
+      </div>
+    </section>
+
+    <footer>
+      om-cli · decision log (ADR-style) · drafted 2026-05-30 · append-only, grows with the project
+    </footer>
+  </div>
+</body>
+</html>

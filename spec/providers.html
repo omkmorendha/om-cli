@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>om-cli — Provider Layer Deep Dive</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg-elev: #161b22; --bg-code: #1c2128; --border: #30363d;
+    --fg: #e6edf3; --fg-dim: #9da7b3; --fg-faint: #6e7681; --accent: #d2a8ff;
+    --accent-2: #79c0ff; --green: #7ee787; --orange: #ffa657; --red: #ff7b72;
+    --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.65; font-size: 16px; }
+  .wrap { display: grid; grid-template-columns: 260px 1fr; max-width: 1400px; margin: 0 auto; }
+  nav { position: sticky; top: 0; height: 100vh; overflow-y: auto; border-right: 1px solid var(--border); padding: 28px 20px; background: var(--bg-elev); }
+  nav .brand { font-family: var(--mono); font-weight: 700; font-size: 18px; color: var(--accent); letter-spacing: -0.5px; }
+  nav .brand .v { color: var(--fg-faint); font-weight: 400; font-size: 13px; }
+  nav ol { list-style: none; padding: 0; margin: 24px 0 0; counter-reset: sec; }
+  nav ol li { counter-increment: sec; margin: 2px 0; }
+  nav ol li a { display: block; color: var(--fg-dim); text-decoration: none; font-size: 14px; padding: 5px 10px; border-radius: 6px; transition: all .12s; }
+  nav ol li a::before { content: counter(sec) ".  "; color: var(--fg-faint); font-family: var(--mono); font-size: 12px; }
+  nav ol li a:hover { background: var(--bg-code); color: var(--fg); }
+  main { padding: 48px 56px 120px; max-width: 920px; }
+  header.hero { margin-bottom: 56px; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
+  header.hero h1 { font-family: var(--mono); font-size: 38px; margin: 0 0 8px; letter-spacing: -1px; }
+  header.hero .tag { color: var(--fg-dim); font-size: 18px; margin: 0; }
+  .pills { margin-top: 22px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { font-family: var(--mono); font-size: 12px; padding: 4px 11px; border-radius: 999px; background: var(--bg-code); border: 1px solid var(--border); color: var(--accent-2); }
+  .pill.alt { color: var(--green); } .pill.warn { color: var(--orange); }
+  section { margin-bottom: 56px; scroll-margin-top: 24px; }
+  h2 { font-size: 26px; margin: 0 0 18px; letter-spacing: -0.4px; display: flex; align-items: baseline; gap: 12px; }
+  h2 .num { font-family: var(--mono); font-size: 15px; color: var(--accent); }
+  h3 { font-size: 18px; margin: 30px 0 10px; color: var(--fg); }
+  h4 { font-size: 15px; margin: 22px 0 8px; color: var(--accent-2); font-family: var(--mono); }
+  p { color: var(--fg-dim); } p strong, li strong { color: var(--fg); }
+  ul, ol.body { color: var(--fg-dim); padding-left: 22px; } li { margin: 5px 0; }
+  code { font-family: var(--mono); background: var(--bg-code); padding: 1.5px 6px; border-radius: 5px; font-size: 13.5px; color: var(--accent); }
+  pre { background: var(--bg-code); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; overflow-x: auto; font-size: 13px; line-height: 1.55; }
+  pre code { background: none; padding: 0; color: var(--fg); }
+  .lead { font-size: 17px; color: var(--fg-dim); }
+  .note { border-left: 3px solid var(--accent-2); background: rgba(121,192,255,.07); padding: 12px 18px; border-radius: 0 8px 8px 0; margin: 18px 0; }
+  .note.scope { border-color: var(--green); background: rgba(126,231,135,.07); }
+  .note.defer { border-color: var(--orange); background: rgba(255,166,87,.07); }
+  .note .label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--fg-faint); display: block; margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--fg-faint); font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+  td { color: var(--fg-dim); } td code { font-size: 12.5px; }
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 10px; padding: 22px; margin: 18px 0; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: var(--fg-dim); white-space: pre; overflow-x: auto; }
+  .diagram b { color: var(--accent); } .diagram .c2 { color: var(--accent-2); } .diagram .g { color: var(--green); } .diagram .o { color: var(--orange); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+  .card h4 { margin-top: 0; }
+  .checklist { list-style: none; padding: 0; }
+  .checklist li { padding-left: 28px; position: relative; }
+  .checklist li::before { content: "▢"; position: absolute; left: 4px; color: var(--fg-faint); font-family: var(--mono); }
+  .checklist li.done::before { content: "▣"; color: var(--green); }
+  footer { color: var(--fg-faint); font-size: 13px; border-top: 1px solid var(--border); padding-top: 20px; margin-top: 60px; font-family: var(--mono); }
+  a.inline { color: var(--accent-2); }
+  @media (max-width: 880px) { .wrap { grid-template-columns: 1fr; } nav { position: relative; height: auto; } main { padding: 32px 24px 80px; } .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <div class="brand">om-cli <span class="v">providers</span></div>
+    <a href="index.html" style="display:block;font-family:var(--mono);font-size:12px;color:var(--fg-faint);text-decoration:none;margin-top:8px;">↑ Spec Index</a>
+    <ol>
+      <li><a href="#overview">Role of the Layer</a></li>
+      <li><a href="#types">Canonical Message &amp; ToolCall</a></li>
+      <li><a href="#contract">Provider Contract &amp; Lifecycle</a></li>
+      <li><a href="#anthropic">Anthropic Messages Adapter</a></li>
+      <li><a href="#openai">OpenAI Responses Adapter</a></li>
+      <li><a href="#normmap">Normalization Map</a></li>
+      <li><a href="#errors">Errors &amp; Cancellation</a></li>
+      <li><a href="#usage">Usage Accounting</a></li>
+      <li><a href="#statefulness">Open: store:false vs id</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <h1>Provider Layer</h1>
+      <p class="tag">Deep dive — the Anthropic / OpenAI adapters that normalize two wire formats into one internal contract.</p>
+      <div class="pills">
+        <span class="pill">@anthropic-ai/sdk</span>
+        <span class="pill">openai (Responses)</span>
+        <span class="pill alt">zod 4 · z.toJSONSchema</span>
+        <span class="pill warn">Draft · 2026-05-30</span>
+      </div>
+    </header>
+
+    <!-- 1 -->
+    <section id="overview">
+      <h2><span class="num">01</span> Role of the Layer</h2>
+      <p class="lead">This page expands <a class="inline" href="v0.html#provider">v0 §6</a>. The provider layer is the single seam where the two model vendors enter the harness, and the only place in the codebase allowed to know SDK-specific shapes. Everything above it — the <a class="inline" href="v0.html#loop">agent loop (§5)</a>, the <a class="inline" href="v0.html#session">session store (§9)</a>, the <a class="inline" href="tui.html">TUI</a> — speaks only the canonical internal types.</p>
+      <p>An adapter does exactly two jobs, and nothing else:</p>
+      <ul>
+        <li><strong>Serialize on send.</strong> Take a <code>ProviderRequest</code> built from canonical <code>Message[]</code> + <code>ToolSpec[]</code> and shape it into that vendor's request body.</li>
+        <li><strong>Parse on receive.</strong> Consume the vendor's streaming event sequence and emit a flat, vendor-neutral <code>ProviderEvent</code> stream.</li>
+      </ul>
+      <p>No business logic lives here: adapters do not decide permissions, do not run tools, do not write transcripts. They are pure translators. That constraint is what keeps the loop provider-agnostic and what makes "switch providers mid-session" theoretically sound — the canonical store is authoritative, and either adapter can re-serialize the same history.</p>
+      <div class="diagram">  <b>Agent Loop (§5)</b>
+        │  ProviderRequest{ system, messages[], tools[], signal }
+        ▼
+  ┌─────────────────────────────────────────────┐
+  │            <b>Provider (adapter)</b>                │
+  │                                               │
+  │   serialize ──▶  <span class="c2">vendor wire body</span>  ──▶ SDK.stream │
+  │                                               │
+  │   <span class="g">ProviderEvent</span>  ◀──  parse  ◀──  <span class="c2">vendor stream</span>  │
+  └─────────────────────────────────────────────┘
+        │  text.delta · tool_call · done
+        ▼
+  <b>Agent Loop</b>  ──▶  <span class="o">AgentEvent</span> to TUI</div>
+      <div class="note">
+        <span class="label">Boundary rule</span>
+        We never persist provider-native messages. The <a class="inline" href="v0.html#session">Session</a> holds canonical <code>Message[]</code>; the adapter rebuilds the wire body from scratch on every turn. This is also why both providers resend full history (§5, §6).
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="types">
+      <h2><span class="num">02</span> Canonical <code>Message</code> &amp; <code>ToolCall</code></h2>
+      <p>The internal message store is the source of truth referenced throughout <a class="inline" href="v0.html#session">v0 §9</a>. It exists so the loop and session never have to branch on which provider is active — there is exactly one message shape, and adapters map both directions.</p>
+      <h3>Why a canonical shape at all</h3>
+      <ul>
+        <li><strong>One loop, two vendors.</strong> Without a canonical type the loop would carry <code>if (provider === "anthropic")</code> branches through every append and replay path. The type pushes all that branching into two small, testable files.</li>
+        <li><strong>Lossless re-serialization.</strong> The store keeps enough structure (tool-use ids, tool results, text segments) that either adapter can reconstruct a valid request body — including the rule that <em>every</em> tool call must be echoed back with a matching result (<a class="inline" href="v0.html#loop">§5 invariant</a>).</li>
+        <li><strong>Transcript fidelity.</strong> The JSONL transcript at <code>.om/transcripts/&lt;id&gt;.jsonl</code> serializes these canonical types directly — replaying it rebuilds <code>messages</code> with no vendor coupling.</li>
+      </ul>
+<pre><code>// The canonical message store. Provider-neutral by construction.
+type Role = "user" | "assistant";
+
+interface Message {
+  role: Role;
+  content: ContentBlock[];   // ordered; mirrors the assistant's emission order
+}
+
+// Content is a small discriminated union — the common subset of both wire formats.
+type ContentBlock =
+  | { type: "text";        text: string }
+  | { type: "tool_call";   call: ToolCall }                 // assistant asked for a tool
+  | { type: "tool_result"; id: string; result: ToolResult } // our reply to that call
+
+// A normalized tool invocation. `id` is the correlation key both APIs require:
+// Anthropic's tool_use.id, OpenAI's function_call.call_id — stored as one field.
+interface ToolCall {
+  id: string;        // correlation id, round-tripped to the result
+  name: string;      // tool name, must match a registered Tool (§7)
+  input: unknown;    // parsed JSON arguments; validated by the tool's zod schema
+}</code></pre>
+      <p>Note that <code>ToolResult</code> is the <em>same</em> <code>{ ok, content, error?, meta? }</code> shape defined in <a class="inline" href="v0.html#tools">v0 §7</a> / detailed in <a class="inline" href="tools.html">tools.html</a> — the provider layer reuses it verbatim, it does not define its own. The <code>StopReason</code> and <code>Usage</code> types are shared with the <code>AgentEvent</code> contract in <a class="inline" href="v0.html#arch">§4</a>:</p>
+<pre><code>type StopReason =
+  | "end"          // model finished its turn, no tool requested
+  | "tool_use"     // model is requesting one or more tools
+  | "max_tokens"   // output length cap hit
+  | "stop_seq"     // a stop sequence matched
+  | "aborted";     // AbortSignal fired mid-stream (§7)
+
+interface Usage { inputTokens: number; outputTokens: number;
+                  cacheReadTokens?: number; cacheWriteTokens?: number; }</code></pre>
+      <div class="note">
+        <span class="label">Why <code>input: unknown</code></span>
+        Arguments arrive as a JSON string fragment-stream from both vendors. The adapter accumulates and <code>JSON.parse</code>s them but does <em>not</em> validate — validation is the tool's job via its zod schema at run time (<a class="inline" href="v0.html#tools">§7</a>). Keeping <code>unknown</code> here means the provider layer never needs to import a tool's schema.
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="contract">
+      <h2><span class="num">03</span> Provider Contract &amp; Lifecycle</h2>
+      <p>The interface is unchanged from <a class="inline" href="v0.html#provider">v0 §6</a> — reproduced here as the contract this page implements:</p>
+<pre><code>interface Provider {
+  readonly id: "anthropic" | "openai";
+  stream(req: ProviderRequest): AsyncIterable&lt;ProviderEvent&gt;;
+}
+
+interface ProviderRequest {
+  system: string;
+  messages: Message[];        // canonical (§2)
+  tools: ToolSpec[];          // canonical; adapter translates per vendor
+  signal: AbortSignal;        // threaded into the SDK call (§7)
+}
+
+type ProviderEvent =
+  | { type: "text.delta"; text: string }
+  | { type: "tool_call";  call: ToolCall }
+  | { type: "done";       stopReason: StopReason; usage: Usage };</code></pre>
+      <h3>ToolSpec — the canonical tool descriptor</h3>
+      <p>The loop passes <code>registry.specs()</code> (see <a class="inline" href="tools.html">tools.html</a>): the model-facing slice of each <a class="inline" href="v0.html#tools">Tool</a>. The JSON Schema is produced once via <code>z.toJSONSchema</code> and is identical for both vendors — only the envelope around it differs (§4, §5).</p>
+<pre><code>interface ToolSpec {
+  name: string;
+  description: string;
+  parameters: JSONSchema;     // z.toJSONSchema(tool.schema), computed once
+}</code></pre>
+      <h3>Lifecycle of one <code>stream()</code> call</h3>
+      <p>One call corresponds to exactly one provider turn (one iteration of the loop in <a class="inline" href="v0.html#loop">§5</a>). The contract:</p>
+      <ol class="body">
+        <li><strong>Serialize.</strong> Build the vendor request body from <code>req</code>. System prompt, history, and tools are all derived fresh from the canonical input.</li>
+        <li><strong>Open the SDK stream</strong> with <code>req.signal</code> attached.</li>
+        <li><strong>Emit deltas as they arrive.</strong> <code>text.delta</code> for prose, accumulate tool-call argument fragments internally.</li>
+        <li><strong>Emit each completed <code>tool_call</code></strong> once its arguments JSON is fully buffered and parsed.</li>
+        <li><strong>Emit exactly one terminal <code>done</code></strong> with the normalized <code>stopReason</code> and <code>usage</code>, then the iterator completes.</li>
+      </ol>
+      <div class="note">
+        <span class="label">Invariants the adapter must uphold</span>
+        Exactly one <code>done</code> per stream, always last. A <code>tool_call</code> is emitted only after its full argument JSON is parsed (never partial). On abort the stream stops promptly and surfaces as described in §7. The adapter never emits <code>approval.request</code> or <code>tool.result</code> — those are loop/TUI concerns (<a class="inline" href="v0.html#arch">§4</a>).
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="anthropic">
+      <h2><span class="num">04</span> Anthropic Messages Adapter</h2>
+      <p>Backed by <code>@anthropic-ai/sdk</code> (Messages API) with streaming tool use. Anthropic models content as an ordered array of <em>blocks</em> per message, and tool calls are <code>tool_use</code> blocks inline in the assistant message.</p>
+
+      <h3>Request shaping</h3>
+      <p>The system prompt becomes the top-level <code>system</code> field, canonical messages become Anthropic <code>messages[]</code>, and tools carry their JSON Schema under <code>input_schema</code>.</p>
+<pre><code>import Anthropic from "@anthropic-ai/sdk";
+
+function toAnthropicTools(tools: ToolSpec[]): Anthropic.Tool[] {
+  return tools.map((t) =&gt; ({
+    name: t.name,
+    description: t.description,
+    input_schema: t.parameters,        // z.toJSONSchema output goes here directly
+  }));
+}
+
+function toAnthropicMessages(messages: Message[]): Anthropic.MessageParam[] {
+  return messages.map((m) =&gt; ({
+    role: m.role,
+    content: m.content.map((b) =&gt; {
+      switch (b.type) {
+        case "text":
+          return { type: "text", text: b.text };
+        case "tool_call":     // assistant block
+          return { type: "tool_use", id: b.call.id,
+                   name: b.call.name, input: b.call.input };
+        case "tool_result":   // sent back inside a *user* message
+          return { type: "tool_result", tool_use_id: b.id,
+                   content: renderToolResult(b.result),
+                   is_error: !b.result.ok };
+      }
+    }),
+  }));
+}
+
+function buildAnthropicRequest(req: ProviderRequest, model: string) {
+  return {
+    model,
+    max_tokens: 8192,
+    system: req.system,                       // top-level system field
+    messages: toAnthropicMessages(req.messages),
+    tools: toAnthropicTools(req.tools),
+    stream: true as const,
+  };
+}</code></pre>
+      <p><strong>tool_result placement.</strong> Anthropic requires tool results to be sent in a <em>user</em>-role message on the turn after the <code>tool_use</code> (this is the "tool_result echo on the next turn" from <a class="inline" href="v0.html#provider">§6</a>). Because the canonical store records each result as a <code>tool_result</code> block (§2), the serializer simply emits it; the loop is responsible for having appended that block before the next <code>stream()</code> (it does — see the <a class="inline" href="v0.html#loop">§5</a> "every call gets a result" invariant).</p>
+
+      <h3>Streaming event parse</h3>
+      <p>Anthropic's stream is a sequence of typed SSE events. The adapter is a small state machine that tracks open content blocks by index and accumulates <code>tool_use</code> argument fragments.</p>
+<pre><code>async function* streamAnthropic(
+  client: Anthropic, req: ProviderRequest, model: string,
+): AsyncIterable&lt;ProviderEvent&gt; {
+  const stream = client.messages.stream(
+    buildAnthropicRequest(req, model),
+    { signal: req.signal },                 // §7 — abort threads in here
+  );
+
+  // index -&gt; partial tool_use being accumulated
+  const pending = new Map&lt;number, { id: string; name: string; json: string }&gt;();
+  let usage: Usage = { inputTokens: 0, outputTokens: 0 };
+  let stopReason: StopReason = "end";
+
+  for await (const ev of stream) {
+    switch (ev.type) {
+      case "message_start":
+        // initial usage (input + any cache read/write) arrives here
+        usage = mapAnthropicUsage(ev.message.usage);
+        break;
+
+      case "content_block_start":
+        if (ev.content_block.type === "tool_use") {
+          pending.set(ev.index, {
+            id: ev.content_block.id,
+            name: ev.content_block.name,
+            json: "",
+          });
+        }
+        break;
+
+      case "content_block_delta":
+        if (ev.delta.type === "text_delta") {
+          yield { type: "text.delta", text: ev.delta.text };
+        } else if (ev.delta.type === "input_json_delta") {
+          // tool_use arguments arrive as a partial JSON string
+          pending.get(ev.index)!.json += ev.delta.partial_json;
+        }
+        break;
+
+      case "content_block_stop": {
+        const p = pending.get(ev.index);
+        if (p) {                            // a tool_use block just closed
+          yield { type: "tool_call", call: {
+            id: p.id, name: p.name,
+            input: p.json ? JSON.parse(p.json) : {},
+          }};
+          pending.delete(ev.index);
+        }
+        break;
+      }
+
+      case "message_delta":
+        // final stop_reason + cumulative output token usage
+        stopReason = mapAnthropicStop(ev.delta.stop_reason);
+        usage.outputTokens = ev.usage.output_tokens;
+        break;
+
+      case "message_stop":
+        break;                              // stream end; emit done below
+    }
+  }
+
+  yield { type: "done", stopReason, usage };
+}
+
+function mapAnthropicStop(r: string | null): StopReason {
+  switch (r) {
+    case "tool_use":   return "tool_use";
+    case "max_tokens": return "max_tokens";
+    case "stop_sequence": return "stop_seq";
+    case "end_turn": default: return "end";
+  }
+}</code></pre>
+      <div class="note">
+        <span class="label">tool_use accumulation</span>
+        Anthropic streams a tool call as: <code>content_block_start</code> (carries <code>id</code> + <code>name</code>) → one or more <code>input_json_delta</code> fragments (the arguments, as a partial JSON string) → <code>content_block_stop</code>. We only emit a <code>tool_call</code> at <code>content_block_stop</code>, once the full JSON is buffered and parsed — never on a partial fragment (§3 invariant).
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="openai">
+      <h2><span class="num">05</span> OpenAI Responses Adapter</h2>
+      <p>Backed by the <code>openai</code> SDK's <strong>Responses API</strong> (the decision in <a class="inline" href="v0.html#open">v0 §13</a> / <a class="inline" href="decisions.html">decisions.html</a>). Responses models a turn as an ordered list of <em>output items</em>; a tool call is a <code>function_call</code> output item, and a tool result is a <code>function_call_output</code> input item.</p>
+
+      <h3>Request shaping</h3>
+      <p>The system prompt maps to <code>instructions</code>, canonical messages flatten into the <code>input[]</code> array of typed items, and tools are flat objects with <code>type: "function"</code> and the JSON Schema under <code>parameters</code>. We send <code>store: false</code> and own conversation state ourselves (§9).</p>
+<pre><code>import OpenAI from "openai";
+
+function toOpenAITools(tools: ToolSpec[]) {
+  return tools.map((t) =&gt; ({
+    type: "function" as const,
+    name: t.name,
+    description: t.description,
+    parameters: t.parameters,          // same z.toJSONSchema output as Anthropic
+  }));
+}
+
+// Canonical messages flatten into Responses input items.
+// Note: there is no "assistant message" wrapper — text and function_call
+// are sibling items in the flat input[] list.
+function toOpenAIInput(messages: Message[]): OpenAI.Responses.ResponseInputItem[] {
+  const items: OpenAI.Responses.ResponseInputItem[] = [];
+  for (const m of messages) {
+    for (const b of m.content) {
+      switch (b.type) {
+        case "text":
+          items.push({ role: m.role, content: b.text });        // message item
+          break;
+        case "tool_call":
+          items.push({ type: "function_call", call_id: b.call.id,
+                       name: b.call.name,
+                       arguments: JSON.stringify(b.call.input) });
+          break;
+        case "tool_result":
+          items.push({ type: "function_call_output", call_id: b.id,
+                       output: renderToolResult(b.result) });
+          break;
+      }
+    }
+  }
+  return items;
+}
+
+function buildOpenAIRequest(req: ProviderRequest, model: string) {
+  return {
+    model,
+    instructions: req.system,            // system prompt -&gt; instructions
+    input: toOpenAIInput(req.messages),
+    tools: toOpenAITools(req.tools),
+    store: false,                        // we own state — §9
+    stream: true as const,
+  };
+}</code></pre>
+      <p><strong>function_call_output correlation.</strong> The <code>call_id</code> on the output item must equal the <code>call_id</code> of the originating <code>function_call</code>. Our canonical <code>ToolCall.id</code> stores exactly that value (§2), so round-tripping is a direct field copy — no provider-specific id bookkeeping leaks into the loop.</p>
+
+      <h3>Streaming event parse</h3>
+      <p>Responses emits semantic SSE events keyed by output-item index. Text streams as <code>response.output_text.delta</code>; tool arguments stream as <code>response.function_call_arguments.delta</code>; the terminal <code>response.completed</code> carries final status + usage.</p>
+<pre><code>async function* streamOpenAI(
+  client: OpenAI, req: ProviderRequest, model: string,
+): AsyncIterable&lt;ProviderEvent&gt; {
+  const stream = await client.responses.create(
+    buildOpenAIRequest(req, model),
+    { signal: req.signal },               // §7 — abort threads in here
+  );
+
+  // output_index -&gt; partial function_call being accumulated
+  const pending = new Map&lt;number, { id: string; name: string; args: string }&gt;();
+  let usage: Usage = { inputTokens: 0, outputTokens: 0 };
+  let stopReason: StopReason = "end";
+
+  for await (const ev of stream) {
+    switch (ev.type) {
+      case "response.output_item.added":
+        if (ev.item.type === "function_call") {
+          pending.set(ev.output_index, {
+            id: ev.item.call_id, name: ev.item.name, args: "",
+          });
+        }
+        break;
+
+      case "response.output_text.delta":
+        yield { type: "text.delta", text: ev.delta };
+        break;
+
+      case "response.function_call_arguments.delta":
+        pending.get(ev.output_index)!.args += ev.delta;
+        break;
+
+      case "response.output_item.done":
+        if (ev.item.type === "function_call") {
+          const p = pending.get(ev.output_index)!;
+          yield { type: "tool_call", call: {
+            id: p.id, name: p.name,
+            input: p.args ? JSON.parse(p.args) : {},
+          }};
+          pending.delete(ev.output_index);
+          stopReason = "tool_use";        // any function_call ⇒ tool turn
+        }
+        break;
+
+      case "response.completed":
+        usage = mapOpenAIUsage(ev.response.usage);
+        // if no tool call was seen, the completed status is a normal end
+        if (stopReason !== "tool_use") {
+          stopReason = ev.response.incomplete_details?.reason === "max_output_tokens"
+            ? "max_tokens" : "end";
+        }
+        break;
+
+      case "response.incomplete":
+        usage = mapOpenAIUsage(ev.response.usage);
+        stopReason = "max_tokens";
+        break;
+    }
+  }
+
+  yield { type: "done", stopReason, usage };
+}</code></pre>
+      <div class="note">
+        <span class="label">function_call → ToolCall</span>
+        A Responses tool call streams as: <code>response.output_item.added</code> (the <code>function_call</code> shell, carrying <code>call_id</code> + <code>name</code>) → repeated <code>response.function_call_arguments.delta</code> (argument string fragments) → <code>response.output_item.done</code> (item closed). As with Anthropic, we emit the canonical <code>tool_call</code> only at the item-done event, after parsing the buffered argument string.
+      </div>
+      <div class="note">
+        <span class="label">Symmetry by design</span>
+        The two parsers are deliberately the same state machine: <em>open item → accumulate JSON string → close item → emit</em>. The only differences are the event names and where usage/stop_reason live. That symmetry is the payoff of the canonical <code>ProviderEvent</code> contract — the loop sees identical output from both.
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="normmap">
+      <h2><span class="num">06</span> Normalization Map</h2>
+      <p>The full expansion of the table in <a class="inline" href="v0.html#provider">v0 §6</a>. Left column is the canonical concept; the two right columns are the wire encodings each adapter produces and parses.</p>
+      <table>
+        <thead><tr><th>Canonical concept</th><th>Anthropic (Messages)</th><th>OpenAI (Responses)</th></tr></thead>
+        <tbody>
+          <tr><td>System prompt</td><td>top-level <code>system</code> field</td><td><code>instructions</code> field</td></tr>
+          <tr><td>History container</td><td><code>messages[]</code> (role + content blocks)</td><td><code>input[]</code> (flat typed items)</td></tr>
+          <tr><td>Assistant text</td><td><code>text</code> content block</td><td><code>message</code> item / output text</td></tr>
+          <tr><td>Tool schema</td><td><code>tools[].input_schema</code></td><td><code>tools[]</code> with <code>type:"function"</code> + <code>parameters</code></td></tr>
+          <tr><td>Schema source</td><td colspan="2"><code>z.toJSONSchema(tool.schema)</code> — identical JSON Schema, different envelope key</td></tr>
+          <tr><td>Tool call</td><td><code>tool_use</code> content block</td><td><code>function_call</code> output item</td></tr>
+          <tr><td>Tool-call id</td><td><code>tool_use.id</code></td><td><code>function_call.call_id</code></td></tr>
+          <tr><td>Tool result</td><td><code>tool_result</code> block in a <em>user</em> msg, <code>is_error</code> flag</td><td><code>function_call_output</code> input item</td></tr>
+          <tr><td>Result correlation</td><td><code>tool_result.tool_use_id</code></td><td><code>function_call_output.call_id</code></td></tr>
+          <tr><td>Text stream</td><td><code>content_block_delta</code> / <code>text_delta</code></td><td><code>response.output_text.delta</code></td></tr>
+          <tr><td>Tool-arg stream</td><td><code>content_block_delta</code> / <code>input_json_delta</code></td><td><code>response.function_call_arguments.delta</code></td></tr>
+          <tr><td>Call open / close</td><td><code>content_block_start</code> / <code>content_block_stop</code></td><td><code>response.output_item.added</code> / <code>…done</code></td></tr>
+          <tr><td>Stop reason</td><td><code>message_delta.stop_reason</code></td><td><code>response.completed</code> status / <code>incomplete_details</code></td></tr>
+          <tr><td>Initial usage</td><td><code>message_start.usage</code></td><td><code>response.completed.usage</code></td></tr>
+          <tr><td>Final usage</td><td><code>message_delta.usage</code></td><td><code>response.completed.usage</code></td></tr>
+          <tr><td>Cancellation</td><td><code>stream(..., { signal })</code></td><td><code>create(..., { signal })</code></td></tr>
+          <tr><td>State ownership</td><td>full <code>messages[]</code> resent each turn</td><td>full <code>input[]</code> resent, <code>store:false</code> — we own state (§9)</td></tr>
+        </tbody>
+      </table>
+      <h4>stop_reason mapping</h4>
+      <table>
+        <thead><tr><th>Canonical <code>StopReason</code></th><th>Anthropic</th><th>OpenAI (Responses)</th></tr></thead>
+        <tbody>
+          <tr><td><code>end</code></td><td><code>end_turn</code></td><td><code>completed</code> (no function_call)</td></tr>
+          <tr><td><code>tool_use</code></td><td><code>tool_use</code></td><td><code>completed</code> with a <code>function_call</code> item present</td></tr>
+          <tr><td><code>max_tokens</code></td><td><code>max_tokens</code></td><td><code>incomplete</code> · reason <code>max_output_tokens</code></td></tr>
+          <tr><td><code>stop_seq</code></td><td><code>stop_sequence</code></td><td>(no direct equivalent — maps to <code>end</code>)</td></tr>
+          <tr><td><code>aborted</code></td><td colspan="2">synthesized by the adapter on <code>AbortSignal</code> (§7), not a wire value</td></tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <span class="label">Asymmetry to watch</span>
+        Anthropic gives an explicit <code>tool_use</code> stop reason; Responses does not — a tool turn is inferred from the <em>presence</em> of a <code>function_call</code> item (note how §5 sets <code>stopReason = "tool_use"</code> when one closes). The adapter encapsulates this so the loop never has to care.
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="errors">
+      <h2><span class="num">07</span> Error Handling &amp; Cancellation</h2>
+      <p>Both adapters thread <code>req.signal</code> — the same <code>AbortSignal</code> the TUI raises on Ctrl-C (<a class="inline" href="v0.html#loop">§5</a>, <a class="inline" href="tui.html">tui.html</a>) — directly into the SDK call's options. There is no second cancellation mechanism; one signal cancels the in-flight HTTP/SSE stream at the source.</p>
+      <h3>Cancellation path</h3>
+<pre><code>// Both SDKs accept an AbortSignal in the request options and reject the
+// stream iterator with an AbortError when it fires.
+const stream = client.messages.stream(body, { signal: req.signal });   // anthropic
+const stream = await client.responses.create(body, { signal: req.signal }); // openai</code></pre>
+      <p>When the signal fires mid-stream, the <code>for await</code> loop throws. The adapter does <em>not</em> let that propagate as a fatal error — an interrupt is a normal control flow event:</p>
+<pre><code>try {
+  for await (const ev of sdkStream) { /* parse + yield, §4/§5 */ }
+  yield { type: "done", stopReason, usage };
+} catch (err) {
+  if (req.signal.aborted || isAbortError(err)) {
+    // clean unwind: report a terminal done, not an error
+    yield { type: "done", stopReason: "aborted", usage };
+    return;
+  }
+  throw err;                  // genuine failure — bubble to the loop's error path
+}</code></pre>
+      <p>The loop then closes out the turn: any tool call already emitted still receives a result message ("interrupted by user") to keep history valid per the <a class="inline" href="v0.html#loop">§5</a> "every call gets a result" invariant, and the <code>AbortSignal</code> also unwinds any in-flight <code>Bun.spawn</code> in the <a class="inline" href="tools.html"><code>bash</code> tool</a>.</p>
+      <h3>Error taxonomy</h3>
+      <table>
+        <thead><tr><th>Condition</th><th>Adapter behavior</th><th>Surfaces as</th></tr></thead>
+        <tbody>
+          <tr><td>AbortSignal fired</td><td>catch, emit <code>done{stopReason:"aborted"}</code></td><td>clean turn end, not an error</td></tr>
+          <tr><td>Auth / 401 (bad key)</td><td>throw — non-retryable</td><td><code>AgentEvent error{fatal:true}</code></td></tr>
+          <tr><td>Rate limit / 429</td><td>SDK retries w/ backoff; if exhausted, throw</td><td><code>error{fatal:false}</code> — retryable</td></tr>
+          <tr><td>5xx / network</td><td>SDK retry; if exhausted, throw</td><td><code>error{fatal:false}</code></td></tr>
+          <tr><td>Malformed tool-arg JSON</td><td>throw on <code>JSON.parse</code> at item close</td><td><code>error{fatal:false}</code> — model can be re-prompted</td></tr>
+          <tr><td>Stream ends without <code>done</code></td><td>emit synthetic <code>done{stopReason:"end"}</code></td><td>turn completes; logged as a warning</td></tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <span class="label">Mapping to AgentEvent</span>
+        Adapters throw or emit <code>done</code>; they never emit <code>AgentEvent.error</code> themselves (that type lives in <a class="inline" href="v0.html#arch">§4</a> and is the loop's). The loop catches a thrown adapter error and decides <code>fatal</code>: auth errors are fatal, transient ones are recoverable and let the user retry the turn.
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="usage">
+      <h2><span class="num">08</span> Usage / Token Accounting</h2>
+      <p>Each <code>done</code> event carries a normalized <code>Usage</code> (§2). The <a class="inline" href="v0.html#session">Session</a> accumulates it across turns and the <a class="inline" href="tui.html">TUI header</a> renders it; the <a class="inline" href="v0.html#session">§9</a> context-limit warning reads from the same running total. Each vendor reports usage in its own shape, so each adapter has a small mapper.</p>
+<pre><code>// Anthropic: usage on message_start (input + cache) and message_delta (output).
+function mapAnthropicUsage(u: Anthropic.Usage): Usage {
+  return {
+    inputTokens:     u.input_tokens,
+    outputTokens:    u.output_tokens,
+    cacheReadTokens:  u.cache_read_input_tokens  ?? undefined,
+    cacheWriteTokens: u.cache_creation_input_tokens ?? undefined,
+  };
+}
+
+// OpenAI Responses: a single usage object on response.completed.
+function mapOpenAIUsage(u: OpenAI.Responses.ResponseUsage): Usage {
+  return {
+    inputTokens:    u.input_tokens,
+    outputTokens:   u.output_tokens,
+    // cached prompt tokens are nested under input_tokens_details
+    cacheReadTokens: u.input_tokens_details?.cached_tokens ?? undefined,
+  };
+}</code></pre>
+      <h3>Accumulation rules</h3>
+      <ul>
+        <li><strong>Per-turn, then summed.</strong> <code>Usage</code> on <code>done</code> is for that one provider call. The session adds it to a running total (<a class="inline" href="v0.html#session">§9</a>'s <code>usage</code>).</li>
+        <li><strong>Input is full-history each turn.</strong> Because both providers resend full history (§6), input-token counts grow turn over turn — that is expected, and is exactly the signal the context-limit warning watches.</li>
+        <li><strong>Cache fields are optional and lossy-tolerant.</strong> Anthropic distinguishes cache read vs write; Responses reports only cached (read) prompt tokens. The canonical type keeps both optional so neither mapper has to fabricate a value.</li>
+        <li><strong>Anthropic splits across events.</strong> Input/cache tokens land on <code>message_start</code>, final output tokens on <code>message_delta</code> — the adapter merges them before emitting the single <code>done</code> (see §4).</li>
+      </ul>
+      <div class="note defer">
+        <span class="label">Out of scope for v0</span>
+        Cost-in-dollars estimation and per-tool token attribution are not in v0. We track raw token counts only; pricing tables and budgets are a <a class="inline" href="roadmap.html">roadmap</a> item.
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="statefulness">
+      <h2><span class="num">09</span> Open Question — <code>store:false</code> vs <code>previous_response_id</code></h2>
+      <p>This is the unresolved provider question carried from <a class="inline" href="v0.html#open">v0 §13</a> ("Responses statefulness"). The Responses API offers two ways to manage conversation continuity, and they are mutually exclusive in practice.</p>
+      <div class="grid2">
+        <div class="card">
+          <h4 style="color:var(--green)">A · store:false, resend full input[]</h4>
+          <ul>
+            <li>We send the complete <code>input[]</code> every turn and set <code>store:false</code> so OpenAI persists nothing server-side.</li>
+            <li>The canonical store (§2) stays the single source of truth.</li>
+            <li>Symmetric with Anthropic, which has no stateful mode — one mental model, one replay path.</li>
+            <li>Switching providers mid-session and transcript replay both work unchanged.</li>
+            <li>Cost: input tokens re-sent each turn (but Anthropic does this too; §8 already accounts for it).</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h4 style="color:var(--orange)">B · previous_response_id chaining</h4>
+          <ul>
+            <li>Send only the new turn's items + <code>previous_response_id</code>; OpenAI reconstructs prior context server-side.</li>
+            <li>Smaller request bodies; potential server-side prompt-cache benefit.</li>
+            <li>But: server now holds authoritative state we don't own — diverges from the canonical store.</li>
+            <li>No Anthropic analogue → two code paths, two replay stories, asymmetric error recovery.</li>
+            <li>A dropped id or expired response breaks the chain; reconstruction needs the full history anyway.</li>
+          </ul>
+        </div>
+      </div>
+      <h3>Recommendation</h3>
+      <p><strong>Adopt option A (<code>store:false</code>, own state) for v0.</strong> It is already the leaning recorded in <a class="inline" href="v0.html#open">v0 §13</a>, and the adapter code in §5 is written for it. The provider layer's entire reason for existing is that the canonical store is authoritative and adapters are stateless translators (§1); <code>previous_response_id</code> would put authoritative state back on the vendor and break that invariant — reintroducing exactly the provider-specific coupling this layer is designed to eliminate. The token savings from B are real but secondary to a single, symmetric, replayable state model, and B has no Anthropic counterpart so it would only ever benefit one provider.</p>
+      <div class="note">
+        <span class="label">Decision point — confirm at M4</span>
+        Validate at <a class="inline" href="v0.html#milestones">milestone M4</a> (OpenAI provider behind the same interface). If <code>store:false</code> request sizes or latency prove problematic at realistic context lengths, revisit B as an opt-in optimization — but only behind the same <code>Provider</code> interface, with the canonical store still authoritative. Until then this stays an <strong>open question</strong>, consistent with v0 §13. Track the resolution in <a class="inline" href="decisions.html">decisions.html</a>.
+      </div>
+    </section>
+
+    <footer>
+      om-cli · provider layer deep dive · expands v0 §6 · drafted 2026-05-30 · design reference, expect churn
+    </footer>
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>om-cli — Tools (per-tool contracts)</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg-elev: #161b22; --bg-code: #1c2128; --border: #30363d;
+    --fg: #e6edf3; --fg-dim: #9da7b3; --fg-faint: #6e7681; --accent: #d2a8ff;
+    --accent-2: #79c0ff; --green: #7ee787; --orange: #ffa657; --red: #ff7b72;
+    --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.65; font-size: 16px; }
+  .wrap { display: grid; grid-template-columns: 260px 1fr; max-width: 1400px; margin: 0 auto; }
+  nav { position: sticky; top: 0; height: 100vh; overflow-y: auto; border-right: 1px solid var(--border); padding: 28px 20px; background: var(--bg-elev); }
+  nav .brand { font-family: var(--mono); font-weight: 700; font-size: 18px; color: var(--accent); letter-spacing: -0.5px; }
+  nav .brand .v { color: var(--fg-faint); font-weight: 400; font-size: 13px; }
+  nav ol { list-style: none; padding: 0; margin: 24px 0 0; counter-reset: sec; }
+  nav ol li { counter-increment: sec; margin: 2px 0; }
+  nav ol li a { display: block; color: var(--fg-dim); text-decoration: none; font-size: 14px; padding: 5px 10px; border-radius: 6px; transition: all .12s; }
+  nav ol li a::before { content: counter(sec) ".  "; color: var(--fg-faint); font-family: var(--mono); font-size: 12px; }
+  nav ol li a:hover { background: var(--bg-code); color: var(--fg); }
+  main { padding: 48px 56px 120px; max-width: 920px; }
+  header.hero { margin-bottom: 56px; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
+  header.hero h1 { font-family: var(--mono); font-size: 38px; margin: 0 0 8px; letter-spacing: -1px; }
+  header.hero .tag { color: var(--fg-dim); font-size: 18px; margin: 0; }
+  .pills { margin-top: 22px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { font-family: var(--mono); font-size: 12px; padding: 4px 11px; border-radius: 999px; background: var(--bg-code); border: 1px solid var(--border); color: var(--accent-2); }
+  .pill.alt { color: var(--green); } .pill.warn { color: var(--orange); }
+  section { margin-bottom: 56px; scroll-margin-top: 24px; }
+  h2 { font-size: 26px; margin: 0 0 18px; letter-spacing: -0.4px; display: flex; align-items: baseline; gap: 12px; }
+  h2 .num { font-family: var(--mono); font-size: 15px; color: var(--accent); }
+  h3 { font-size: 18px; margin: 30px 0 10px; color: var(--fg); }
+  h4 { font-size: 15px; margin: 22px 0 8px; color: var(--accent-2); font-family: var(--mono); }
+  p { color: var(--fg-dim); } p strong, li strong { color: var(--fg); }
+  ul, ol.body { color: var(--fg-dim); padding-left: 22px; } li { margin: 5px 0; }
+  code { font-family: var(--mono); background: var(--bg-code); padding: 1.5px 6px; border-radius: 5px; font-size: 13.5px; color: var(--accent); }
+  pre { background: var(--bg-code); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; overflow-x: auto; font-size: 13px; line-height: 1.55; }
+  pre code { background: none; padding: 0; color: var(--fg); }
+  .lead { font-size: 17px; color: var(--fg-dim); }
+  .note { border-left: 3px solid var(--accent-2); background: rgba(121,192,255,.07); padding: 12px 18px; border-radius: 0 8px 8px 0; margin: 18px 0; }
+  .note.scope { border-color: var(--green); background: rgba(126,231,135,.07); }
+  .note.defer { border-color: var(--orange); background: rgba(255,166,87,.07); }
+  .note .label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--fg-faint); display: block; margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--fg-faint); font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+  td { color: var(--fg-dim); } td code { font-size: 12.5px; }
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 10px; padding: 22px; margin: 18px 0; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: var(--fg-dim); white-space: pre; overflow-x: auto; }
+  .diagram b { color: var(--accent); } .diagram .c2 { color: var(--accent-2); } .diagram .g { color: var(--green); } .diagram .o { color: var(--orange); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+  .card h4 { margin-top: 0; }
+  .checklist { list-style: none; padding: 0; }
+  .checklist li { padding-left: 28px; position: relative; }
+  .checklist li::before { content: "▢"; position: absolute; left: 4px; color: var(--fg-faint); font-family: var(--mono); }
+  .checklist li.done::before { content: "▣"; color: var(--green); }
+  footer { color: var(--fg-faint); font-size: 13px; border-top: 1px solid var(--border); padding-top: 20px; margin-top: 60px; font-family: var(--mono); }
+  a.inline { color: var(--accent-2); }
+  @media (max-width: 880px) { .wrap { grid-template-columns: 1fr; } nav { position: relative; height: auto; } main { padding: 32px 24px 80px; } .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <div class="brand">om-cli <span class="v">tools</span></div>
+    <a href="index.html" style="display:block;font-family:var(--mono);font-size:12px;color:var(--fg-faint);text-decoration:none;margin-top:8px;">↑ Spec Index</a>
+    <ol>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#read">read</a></li>
+      <li><a href="#ls">ls</a></li>
+      <li><a href="#glob">glob</a></li>
+      <li><a href="#grep">grep</a></li>
+      <li><a href="#write">write</a></li>
+      <li><a href="#edit">edit</a></li>
+      <li><a href="#bash">bash</a></li>
+      <li><a href="#context">ToolContext</a></li>
+      <li><a href="#edit-algo">Edit Algorithm</a></li>
+      <li><a href="#truncation">Truncation Policy</a></li>
+      <li><a href="#ripgrep">Ripgrep Detection</a></li>
+      <li><a href="#registry">Registry</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <h1>Tools</h1>
+      <p class="tag">Per-tool contracts: schemas, result shapes, previews, and shared mechanics.</p>
+      <div class="pills">
+        <span class="pill">zod 4</span>
+        <span class="pill">z.toJSONSchema</span>
+        <span class="pill alt">Bun-native</span>
+        <span class="pill warn">Draft · 2026-05-30</span>
+      </div>
+    </header>
+
+    <!-- 1 -->
+    <section id="overview">
+      <h2><span class="num">01</span> Overview</h2>
+      <p class="lead">This page is the contract sheet for every v0 tool. <a class="inline" href="v0.html#tools">v0 §7</a> defines the <code>Tool</code> interface and the tool set; here each tool gets its zod schema, <code>ToolResult</code> shape, <code>preview()</code> format, permission class, edge cases, and truncation behavior — followed by the shared mechanics every tool inherits.</p>
+      <p>Tools are the <strong>only side-effect surface</strong> in om-cli. The model never touches disk or spawns processes directly: it emits a tool call, the registry validates the input against the zod schema, the <a class="inline" href="v0.html#permissions">permission gate</a> decides, and only then does <code>run()</code> execute. The schema is the single source of truth — it produces the JSON Schema the model sees <em>and</em> validates input before execution.</p>
+<pre><code>interface Tool&lt;I&gt; {
+  name: string;
+  description: string;
+  schema: ZodSchema&lt;I&gt;;          // z.toJSONSchema(schema) -> model-facing spec
+  permission: PermissionClass;    // "read" | "write" | "exec"
+  preview(input: I): string;      // one-line approval/scrollback preview
+  run(input: I, ctx: ToolContext): Promise&lt;ToolResult&gt;;
+}
+
+type PermissionClass = "read" | "write" | "exec";
+
+interface ToolResult {
+  ok: boolean;
+  content: string;                // model-facing text (already truncated)
+  error?: string;                 // present iff ok === false
+  meta?: Record&lt;string, unknown&gt;; // structured extras for TUI / transcript
+}</code></pre>
+      <table>
+        <thead><tr><th>Tool</th><th>Purpose</th><th>Permission</th><th>Side effect</th></tr></thead>
+        <tbody>
+          <tr><td><code>read</code></td><td>Read a file, optional line range</td><td><span style="color:var(--green)">read</span></td><td>none</td></tr>
+          <tr><td><code>ls</code></td><td>List a directory</td><td><span style="color:var(--green)">read</span></td><td>none</td></tr>
+          <tr><td><code>glob</code></td><td>Find files by pattern</td><td><span style="color:var(--green)">read</span></td><td>none</td></tr>
+          <tr><td><code>grep</code></td><td>Search file contents</td><td><span style="color:var(--green)">read</span></td><td>none</td></tr>
+          <tr><td><code>write</code></td><td>Create / overwrite a file</td><td><span style="color:var(--orange)">write</span></td><td>disk</td></tr>
+          <tr><td><code>edit</code></td><td>Exact-string replacement</td><td><span style="color:var(--orange)">write</span></td><td>disk</td></tr>
+          <tr><td><code>bash</code></td><td>Run a shell command</td><td><span style="color:var(--red)">exec</span></td><td>process</td></tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <span class="label">Path convention</span>
+        Every path argument is an <strong>absolute path</strong> at the tool boundary. v0 has <strong>no project-root jail</strong> — an out-of-root path is not rejected; it flows through the normal <code>write</code>/<code>exec</code> approval and the user is the guard. Relative paths are resolved against <code>ctx.cwd</code> as a convenience, then normalized.
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="read">
+      <h2><span class="num">02</span> read</h2>
+      <p><strong>Purpose.</strong> Read a UTF-8 text file from disk, optionally a line range. Reading a file is also the <em>prerequisite</em> for editing it — a successful <code>read</code> records the resolved path in the session read-set (see <a class="inline" href="#context">§9</a>), which <code>edit</code> later checks.</p>
+      <h4>schema</h4>
+<pre><code>const readSchema = z.object({
+  path: z.string().describe("Absolute path to the file to read."),
+  offset: z.number().int().min(1).optional()
+    .describe("1-based line to start at. Default: first line."),
+  limit: z.number().int().min(1).optional()
+    .describe("Max lines to return. Default: whole file (truncation still applies)."),
+});</code></pre>
+      <h4>ToolResult</h4>
+      <p><code>content</code> is the selected lines, each prefixed with a right-aligned 1-based line number and a tab (<code>cat -n</code> style) so the model can quote line positions back to <code>edit</code>. <code>meta</code> carries structured extras for the TUI tool card and transcript.</p>
+<pre><code>// meta on success
+{
+  path: string;          // resolved absolute path
+  lines: number;         // lines returned
+  totalLines: number;    // lines in file
+  bytes: number;         // bytes of content returned
+  truncated: boolean;    // line-count or byte cap hit
+}</code></pre>
+      <h4>preview()</h4>
+<pre><code>read(input) => `read ${rel(input.path)}` +
+  (input.offset || input.limit
+    ? `:${input.offset ?? 1}${input.limit ? `+${input.limit}` : ""}`
+    : "")
+// e.g.  "read src/parser.ts"   or   "read src/parser.ts:40+20"</code></pre>
+      <p><code>rel()</code> renders the path relative to <code>ctx.cwd</code> when it is inside cwd, otherwise the absolute path — used in every preview for legibility.</p>
+      <h4>Permission</h4>
+      <p><code>read</code> → auto-allow. No prompt.</p>
+      <h4>Edge cases</h4>
+      <ul>
+        <li><strong>Missing file</strong> → <code>ok:false</code>, <code>error:"file not found: &lt;path&gt;"</code>.</li>
+        <li><strong>Path is a directory</strong> → <code>ok:false</code>, <code>error:"path is a directory, use ls"</code>.</li>
+        <li><strong>Binary file</strong> (NUL byte in first 8 KB sniff) → <code>ok:false</code>, <code>error:"binary file, not shown"</code> with <code>meta.bytes</code> set; never streamed to the model.</li>
+        <li><strong>Empty file</strong> → <code>ok:true</code>, <code>content:""</code>, <code>meta.lines:0</code> (still records the read-set entry).</li>
+        <li><strong>offset past EOF</strong> → <code>ok:true</code>, empty content, no error (model can infer file length from <code>meta.totalLines</code>).</li>
+      </ul>
+      <h4>Truncation</h4>
+      <p>Two caps, whichever hits first: the explicit <code>limit</code> line count, and the shared byte cap (<a class="inline" href="#truncation">§11</a>). On a byte cap the head+tail policy applies and <code>meta.truncated</code> is <code>true</code>.</p>
+    </section>
+
+    <!-- 3 -->
+    <section id="ls">
+      <h2><span class="num">03</span> ls</h2>
+      <p><strong>Purpose.</strong> List the immediate entries of a directory (non-recursive in v0). Used by the model to orient before reading or globbing.</p>
+      <h4>schema</h4>
+<pre><code>const lsSchema = z.object({
+  path: z.string().describe("Absolute path to the directory to list."),
+  all: z.boolean().default(false)
+    .describe("Include dotfiles (entries starting with '.')."),
+});</code></pre>
+      <h4>ToolResult</h4>
+      <p><code>content</code> is one entry per line, directories suffixed with <code>/</code>, sorted directories-first then lexicographically. <code>meta.entries</code> is the structured form for the TUI.</p>
+<pre><code>// meta on success
+{
+  path: string;                                   // resolved directory
+  entries: { name: string; type: "file" | "dir" | "symlink"; size?: number }[];
+  count: number;
+  truncated: boolean;                             // entry cap hit (see below)
+}</code></pre>
+      <h4>preview()</h4>
+<pre><code>ls(input) => `ls ${rel(input.path)}`   // "ls src/"</code></pre>
+      <h4>Permission</h4>
+      <p><code>read</code> → auto-allow.</p>
+      <h4>Edge cases</h4>
+      <ul>
+        <li><strong>Missing directory</strong> → <code>ok:false</code>, <code>error:"directory not found: &lt;path&gt;"</code>.</li>
+        <li><strong>Path is a file</strong> → <code>ok:false</code>, <code>error:"path is a file, use read"</code>.</li>
+        <li><strong>Empty directory</strong> → <code>ok:true</code>, <code>content:"(empty)"</code>, <code>meta.count:0</code>.</li>
+        <li><strong>Broken symlink</strong> → listed with <code>type:"symlink"</code> and no <code>size</code>; never followed.</li>
+      </ul>
+      <h4>Truncation</h4>
+      <p>Hard cap of <strong>1000 entries</strong>; beyond that the list is cut and a notice line is appended (<code>… +N more entries (use glob for large trees)</code>), <code>meta.truncated:true</code>.</p>
+    </section>
+
+    <!-- 4 -->
+    <section id="glob">
+      <h2><span class="num">04</span> glob</h2>
+      <p><strong>Purpose.</strong> Find files by glob pattern using <code>Bun.Glob</code>. The Bun-native path-matcher; fast, no shell, no external binary.</p>
+      <h4>schema</h4>
+<pre><code>const globSchema = z.object({
+  pattern: z.string()
+    .describe("Glob pattern, e.g. 'src/**/*.ts'. Matched with Bun.Glob."),
+  cwd: z.string().optional()
+    .describe("Directory to scan from. Default: ctx.cwd."),
+});</code></pre>
+      <h4>ToolResult</h4>
+      <p><code>content</code> is one matching path per line, sorted by most-recently-modified first (so the model sees the files most likely in play). <code>meta</code> carries the count and the scan root.</p>
+<pre><code>// meta on success
+{
+  pattern: string;
+  cwd: string;          // resolved scan root
+  matches: string[];    // absolute paths, mtime-desc
+  count: number;
+  truncated: boolean;
+}</code></pre>
+      <h4>preview()</h4>
+<pre><code>glob(input) => `glob ${input.pattern}`   // "glob src/**/*.ts"</code></pre>
+      <h4>Permission</h4>
+      <p><code>read</code> → auto-allow.</p>
+      <h4>Edge cases</h4>
+      <ul>
+        <li><strong>No matches</strong> → <code>ok:true</code>, <code>content:"(no matches)"</code>, <code>meta.count:0</code>. An empty result is not an error.</li>
+        <li><strong>Invalid pattern</strong> (Bun.Glob throws) → <code>ok:false</code>, <code>error</code> carrying the normalized message.</li>
+        <li><strong>Missing cwd</strong> → <code>ok:false</code>, <code>error:"scan root not found: &lt;cwd&gt;"</code>.</li>
+        <li><strong>Symlink cycles</strong> are not followed; <code>Bun.Glob</code> does not descend into them.</li>
+      </ul>
+      <h4>Truncation</h4>
+      <p>Hard cap of <strong>1000 matches</strong>; excess is cut with a <code>… +N more matches</code> notice and <code>meta.truncated:true</code>. Because matches are mtime-desc, the cap keeps the freshest files.</p>
+    </section>
+
+    <!-- 5 -->
+    <section id="grep">
+      <h2><span class="num">05</span> grep</h2>
+      <p><strong>Purpose.</strong> Search file contents by regex. Uses <strong>ripgrep</strong> (<code>rg</code>) when it is on <code>PATH</code> for speed and gitignore-awareness, and falls back to a pure-Bun scanner when it is not (detection in <a class="inline" href="#ripgrep">§12</a>). The two backends produce the same <code>ToolResult</code> shape.</p>
+      <h4>schema</h4>
+<pre><code>const grepSchema = z.object({
+  pattern: z.string().describe("Regular expression to search for."),
+  path: z.string().optional()
+    .describe("File or directory to search. Default: ctx.cwd."),
+  glob: z.string().optional()
+    .describe("Restrict to files matching this glob, e.g. '*.ts'."),
+  ignoreCase: z.boolean().default(false),
+  context: z.number().int().min(0).max(10).default(0)
+    .describe("Lines of context around each match (rg -C)."),
+});</code></pre>
+      <h4>ToolResult</h4>
+      <p><code>content</code> is grouped by file, each match rendered <code>path:line:text</code> (context lines use <code>-</code> as the separator instead of <code>:</code>, matching ripgrep). <code>meta</code> records which backend ran so the TUI and transcript can show it.</p>
+<pre><code>// meta on success
+{
+  pattern: string;
+  backend: "ripgrep" | "fallback";
+  files: number;        // distinct files with a match
+  matches: number;      // total matching lines
+  truncated: boolean;
+}</code></pre>
+      <h4>preview()</h4>
+<pre><code>grep(input) => `grep /${input.pattern}/` +
+  (input.path ? ` in ${rel(input.path)}` : "") +
+  (input.glob ? ` (${input.glob})` : "")
+// e.g.  "grep /TODO/ in src/ (*.ts)"</code></pre>
+      <h4>Permission</h4>
+      <p><code>read</code> → auto-allow.</p>
+      <h4>Edge cases</h4>
+      <ul>
+        <li><strong>No matches</strong> → <code>ok:true</code>, <code>content:"(no matches)"</code>, <code>meta.matches:0</code>. Note: <code>rg</code> exits <code>1</code> on no-match — that is normalized to a successful empty result, not an error.</li>
+        <li><strong>Invalid regex</strong> → <code>ok:false</code> with the engine's error (both backends validate up front).</li>
+        <li><strong>Binary files</strong> are skipped by both backends (no NUL-byte content streamed).</li>
+        <li><strong>Search root missing</strong> → <code>ok:false</code>, <code>error:"search path not found: &lt;path&gt;"</code>.</li>
+      </ul>
+      <h4>Truncation</h4>
+      <p>Cap on <strong>matches emitted</strong> (default 200 lines) plus the shared byte cap. When cut, a <code>… +N more matches (narrow with glob/path)</code> notice is appended and <code>meta.truncated:true</code>. The fallback backend enforces the same caps in-process so it never streams more than ripgrep would.</p>
+    </section>
+
+    <!-- 6 -->
+    <section id="write">
+      <h2><span class="num">06</span> write</h2>
+      <p><strong>Purpose.</strong> Create a new file or fully overwrite an existing one. The path for <em>whole-file</em> content; partial changes go through <code>edit</code>.</p>
+      <h4>schema</h4>
+<pre><code>const writeSchema = z.object({
+  path: z.string().describe("Absolute path to write. Parent dirs are created."),
+  content: z.string().describe("Full file content (overwrites any existing file)."),
+});</code></pre>
+      <h4>ToolResult</h4>
+<pre><code>// meta on success
+{
+  path: string;
+  bytes: number;        // bytes written
+  created: boolean;     // true = new file, false = overwrote existing
+}</code></pre>
+      <p><code>content</code> on success is a short confirmation, e.g. <code>wrote 1.2 KB to src/config.ts (created)</code>. The file body is never echoed back to the model.</p>
+      <h4>preview()</h4>
+<pre><code>write(input) => `write ${rel(input.path)} (${human(input.content.length)})`
+// "write src/config.ts (1.2 KB)"</code></pre>
+      <h4>Permission</h4>
+      <p><code>write</code> → <strong>prompt</strong> (auto-allow only if config pre-allows the class). The approval modal shows the <code>preview()</code> string.</p>
+      <h4>Edge cases</h4>
+      <ul>
+        <li><strong>Overwrite</strong> is allowed — <code>write</code> does not require a prior <code>read</code> (that prerequisite is <code>edit</code>'s, since overwrite intentionally discards existing content). The approval prompt is the safeguard.</li>
+        <li><strong>Missing parent directories</strong> are created (<code>mkdir -p</code> semantics) so the model need not <code>ls</code> first.</li>
+        <li><strong>Target is a directory</strong> → <code>ok:false</code>, <code>error:"path is a directory"</code>.</li>
+        <li><strong>Permission denied by OS</strong> → <code>ok:false</code> with the normalized <code>EACCES</code> message.</li>
+        <li><strong>Denied at the gate</strong> → still returns a <code>ToolResult</code> (<code>ok:false</code>, <code>error:"denied by user"</code>) so the loop continues.</li>
+      </ul>
+      <h4>Truncation</h4>
+      <p>None — input is taken verbatim. The success <code>content</code> is a fixed-size confirmation, so there is nothing to truncate.</p>
+    </section>
+
+    <!-- 7 -->
+    <section id="edit">
+      <h2><span class="num">07</span> edit</h2>
+      <p><strong>Purpose.</strong> Replace one exact, uniquely-matching substring in a previously-read file. Deterministic surgical edits; its failure mode is a clean retry, never silent corruption. The full algorithm is specified in <a class="inline" href="#edit-algo">§10</a>.</p>
+      <h4>schema</h4>
+<pre><code>const editSchema = z.object({
+  path: z.string().describe("Absolute path to the file to edit."),
+  old_string: z.string()
+    .describe("Exact text to replace. Must occur exactly once in the file."),
+  new_string: z.string()
+    .describe("Replacement text. Must differ from old_string."),
+})
+  .refine(v => v.old_string !== v.new_string, {
+    message: "old_string and new_string must differ",
+    path: ["new_string"],
+  });</code></pre>
+      <h4>ToolResult</h4>
+<pre><code>// meta on success
+{
+  path: string;
+  line: number;         // 1-based line of the replaced match
+  removed: number;      // bytes removed
+  added: number;        // bytes added
+}</code></pre>
+      <p><code>content</code> on success is a short confirmation, e.g. <code>edited src/parser.ts at line 88</code>. <code>meta.line</code> lets the TUI render a focused diff card (see the <a class="inline" href="v0.html#tui">TUI mock</a> in v0 §10).</p>
+      <h4>preview()</h4>
+<pre><code>edit(input) => `edit ${rel(input.path)}`   // "edit src/parser.ts"</code></pre>
+      <p>The approval modal additionally renders a small <code>-/+</code> diff of <code>old_string</code> → <code>new_string</code> built from the same input (see <a class="inline" href="tui.html">tui.html</a>); <code>preview()</code> itself stays one line.</p>
+      <h4>Permission</h4>
+      <p><code>write</code> → <strong>prompt</strong>.</p>
+      <h4>Edge cases &amp; truncation</h4>
+      <p>All edge cases (read-prerequisite miss, zero matches, multiple matches) are enumerated with their exact error strings in <a class="inline" href="#edit-algo">§10</a>. There is no output truncation — the result is a fixed-size confirmation.</p>
+    </section>
+
+    <!-- 8 -->
+    <section id="bash">
+      <h2><span class="num">08</span> bash</h2>
+      <p><strong>Purpose.</strong> Run a shell command via <code>Bun.spawn</code>. The general-purpose escape hatch (build, test, git, package managers). stdout/stderr stream live to the TUI and the <code>AbortSignal</code> threads through for clean Ctrl-C cancellation.</p>
+      <h4>schema</h4>
+<pre><code>const bashSchema = z.object({
+  command: z.string().describe("Shell command to run via the system shell."),
+  cwd: z.string().optional().describe("Working directory. Default: ctx.cwd."),
+  timeout_ms: z.number().int().min(1).max(600_000).default(120_000)
+    .describe("Kill the process after this many ms."),
+});</code></pre>
+      <h4>ToolResult</h4>
+      <p><code>content</code> is the combined, ordered stdout+stderr (interleaved as produced), already truncated. <code>ok</code> follows the exit code: <code>true</code> iff exit <code>0</code>. A non-zero exit is <strong>not</strong> a tool failure in the protocol sense — it is reported as <code>ok:false</code> with the output intact so the model can read the error.</p>
+<pre><code>// meta (always present, success or failure)
+{
+  command: string;
+  cwd: string;
+  exitCode: number | null;   // null if killed by signal/timeout/abort
+  signal: string | null;     // e.g. "SIGTERM" on timeout/abort
+  durationMs: number;
+  truncated: boolean;
+}</code></pre>
+      <h4>preview()</h4>
+<pre><code>bash(input) => `bash ${oneLine(input.command, 80)}`
+// "bash npm test"   (collapsed to one line, capped at 80 chars + …)</code></pre>
+      <h4>Permission</h4>
+      <p><code>exec</code> → <strong>prompt</strong>. The session allowlist can be keyed on the command signature (e.g. allow <code>bash: npm test</code> for the session without re-prompting) — see <a class="inline" href="v0.html#permissions">v0 §8</a>.</p>
+      <h4>Edge cases</h4>
+      <ul>
+        <li><strong>Non-zero exit</strong> → <code>ok:false</code>, <code>error:"exited with code &lt;n&gt;"</code>, full output in <code>content</code>.</li>
+        <li><strong>Timeout</strong> → process killed (<code>SIGTERM</code>), <code>ok:false</code>, <code>error:"timed out after &lt;ms&gt;ms"</code>, <code>meta.signal:"SIGTERM"</code>, partial output preserved.</li>
+        <li><strong>Aborted</strong> (Ctrl-C → <code>ctx.signal</code>) → process killed, <code>ok:false</code>, <code>error:"aborted"</code>. The loop unwinds cleanly per the <a class="inline" href="v0.html#loop">loop invariants</a>.</li>
+        <li><strong>Command not found / shell error</strong> → surfaces as a non-zero exit with the shell's stderr in <code>content</code>.</li>
+        <li><strong>No stdin.</strong> v0 runs commands non-interactively; a process that blocks on stdin will hit the timeout.</li>
+      </ul>
+      <h4>Truncation</h4>
+      <p>Shared byte cap with head+tail (<a class="inline" href="#truncation">§11</a>). Live TUI streaming shows the full output as it arrives; only the <em>model-facing</em> <code>content</code> is truncated, with <code>meta.truncated:true</code>.</p>
+    </section>
+
+    <!-- 9 -->
+    <section id="context">
+      <h2><span class="num">09</span> Shared mechanic — ToolContext</h2>
+      <p>Every <code>run()</code> receives a <code>ToolContext</code>. It is the tool's only window onto session state — tools are otherwise pure functions of <code>(input, ctx)</code>.</p>
+<pre><code>interface ToolContext {
+  cwd: string;                 // resolved working directory for relative paths
+  readSet: ReadSet;            // files read this session (edit prerequisite)
+  signal: AbortSignal;         // threaded from the turn; honored by bash &amp; long reads
+  logger: Logger;              // structured logger -> transcript + debug
+}
+
+interface ReadSet {
+  add(path: string): void;     // called by read() on success (resolved abs path)
+  has(path: string): boolean;  // called by edit() to enforce the prerequisite
+}
+
+interface Logger {
+  debug(msg: string, fields?: Record&lt;string, unknown&gt;): void;
+  warn(msg: string, fields?: Record&lt;string, unknown&gt;): void;
+  error(msg: string, fields?: Record&lt;string, unknown&gt;): void;
+}</code></pre>
+      <ul>
+        <li><strong><code>cwd</code></strong> — used to resolve relative path arguments and to render <code>rel()</code> in previews. The session sets it once at startup; v0 has no per-turn <code>cd</code> persistence (a <code>bash cd</code> does not move <code>ctx.cwd</code>).</li>
+        <li><strong><code>readSet</code></strong> — the session-scoped set of files that have been successfully <code>read</code>. <code>read.run()</code> calls <code>add(resolvedPath)</code>; <code>edit.run()</code> calls <code>has(resolvedPath)</code> as its first gate (<a class="inline" href="#edit-algo">§10</a>). It lives on the <a class="inline" href="v0.html#session">Session</a> and is keyed by resolved absolute path.</li>
+        <li><strong><code>signal</code></strong> — the turn's <code>AbortSignal</code>. <code>bash</code> passes it to <code>Bun.spawn</code>; <code>read</code>/<code>grep</code> check it between chunks. On abort, <code>run()</code> rejects/returns promptly so the loop can unwind (<a class="inline" href="v0.html#loop">loop invariants</a>).</li>
+        <li><strong><code>logger</code></strong> — structured logging that also feeds the transcript. Tools log decisions (backend chosen, truncation applied) at <code>debug</code>; never log file contents or secrets.</li>
+      </ul>
+      <div class="note">
+        <span class="label">Why a read-set, not mtime checks</span>
+        v0 deliberately tracks "did the model read this file this session" rather than detecting on-disk staleness. It is the cheap, deterministic prerequisite that makes <code>edit</code> safe to apply without a fuzzy matcher. Detecting external modification between read and edit is deferred (it belongs with the post-v0 diff review surface).
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="edit-algo">
+      <h2><span class="num">10</span> Shared mechanic — the exact-string edit algorithm</h2>
+      <p>This is the precise procedure <code>edit.run()</code> executes. It is intentionally simple: read prerequisite, exactly-one-match, replace, write back. Any deviation returns <code>ok:false</code> with a specific, model-actionable error and leaves the file untouched.</p>
+      <h4>Steps</h4>
+      <ol class="body">
+        <li><strong>Resolve</strong> <code>path</code> against <code>ctx.cwd</code> and normalize to an absolute path <code>p</code>.</li>
+        <li><strong>Read-prerequisite check.</strong> If <code>!ctx.readSet.has(p)</code> → return <code>ok:false</code>, error:<br><code>"must read &lt;p&gt; before editing it"</code>. No disk access beyond resolution.</li>
+        <li><strong>Load</strong> the current file bytes as UTF-8 (<code>src</code>). If the file is missing → <code>ok:false</code>, error: <code>"file not found: &lt;p&gt;"</code>.</li>
+        <li><strong>Count matches</strong> of <code>old_string</code> in <code>src</code> as a literal substring (no regex):
+          <ul>
+            <li><strong>0 matches</strong> → <code>ok:false</code>, error: <code>"old_string not found in &lt;p&gt; — it must match the file exactly, including whitespace"</code>.</li>
+            <li><strong>&gt;1 matches</strong> → <code>ok:false</code>, error: <code>"old_string matched N times in &lt;p&gt; — add surrounding context so it is unique"</code> (with the literal count).</li>
+            <li><strong>exactly 1</strong> → proceed.</li>
+          </ul>
+        </li>
+        <li><strong>Replace</strong> the single occurrence: <code>out = src.slice(0,i) + new_string + src.slice(i + old_string.length)</code>.</li>
+        <li><strong>Write back</strong> <code>out</code> to <code>p</code> (the file already exists, so no parent-dir creation). Honor <code>ctx.signal</code>.</li>
+        <li><strong>Return</strong> <code>ok:true</code>, <code>content:"edited &lt;rel&gt; at line &lt;L&gt;"</code> where <code>L</code> is the 1-based line of index <code>i</code>; <code>meta</code> = <code>{ path, line, removed, added }</code> as in <a class="inline" href="#edit">§7</a>.</li>
+      </ol>
+      <p>The <code>old_string !== new_string</code> guard is enforced by the schema's <code>.refine()</code> before <code>run()</code> is ever reached, so a no-op edit is rejected at validation time (<a class="inline" href="#registry">§13</a>), not inside the algorithm.</p>
+      <div class="diagram">edit.run(input, ctx)
+  ├─ p = resolve(cwd, path)
+  ├─ <span class="o">readSet.has(p)?</span> ── no ──&gt; ok:false  "must read &lt;p&gt; before editing it"
+  ├─ src = read(p)     ── missing ──&gt; ok:false  "file not found: &lt;p&gt;"
+  ├─ n = count(src, old_string)
+  │     n == 0 ──&gt; ok:false  "old_string not found … exactly, including whitespace"
+  │     n &gt;  1 ──&gt; ok:false  "old_string matched n times … add surrounding context"
+  │     n == 1 ──&gt; continue
+  ├─ out = splice(src, i, old_string, new_string)
+  ├─ write(p, out)
+  └─ <span class="g">ok:true</span>  "edited &lt;rel&gt; at line L"   meta:{path,line,removed,added}</div>
+      <div class="note defer">
+        <span class="label">Edit strategy — post-v0</span>
+        v0 commits to exact-string replacement for its determinism and zero applier complexity. The longer-term path is <strong>unified-diff / patch application</strong>, landing with the deferred diff review UI (the diff format and the review surface are the same artifact). Line-range editing is rejected outright — line-number drift across multi-edit turns risks silent corruption. See <a class="inline" href="v0.html#tools">v0 §7</a> and <a class="inline" href="decisions.html">decisions.html</a>.
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section id="truncation">
+      <h2><span class="num">11</span> Shared mechanic — output truncation policy</h2>
+      <p>Tool output that flows back to the model is capped so a single <code>read</code> of a generated file or a noisy <code>bash</code> run cannot blow the context window. The policy is uniform and lives in one helper so every tool truncates identically.</p>
+      <h4>Policy</h4>
+      <ul>
+        <li><strong>Byte cap:</strong> <code>MAX_TOOL_BYTES = 30_000</code> (~30 KB) of UTF-8 model-facing <code>content</code>. (Per-tool line/entry/match caps in §2–§8 apply <em>before</em> this and may cut sooner.)</li>
+        <li><strong>Head + tail.</strong> When the cap is exceeded, keep the first <code>~20 KB</code> and the last <code>~10 KB</code> and drop the middle — the start (context, first errors) and end (final status, stack tail) are the most useful.</li>
+        <li><strong>Notice.</strong> A single line marks the cut, with how much was removed.</li>
+        <li><strong>meta.truncated = true</strong> whenever any cut occurred, so the TUI can badge the card and the transcript records it.</li>
+      </ul>
+<pre><code>const MAX_TOOL_BYTES = 30_000;
+const HEAD = 20_000;
+const TAIL = 10_000;
+
+function truncate(s: string): { content: string; truncated: boolean } {
+  const bytes = Buffer.byteLength(s, "utf8");
+  if (bytes &lt;= MAX_TOOL_BYTES) return { content: s, truncated: false };
+  const head = sliceBytes(s, 0, HEAD);
+  const tail = sliceBytes(s, bytes - TAIL, bytes);
+  const dropped = bytes - HEAD - TAIL;
+  const notice = `\n\n… [truncated ${human(dropped)} of output] …\n\n`;
+  return { content: head + notice + tail, truncated: true };
+}</code></pre>
+      <p><code>sliceBytes</code> slices on UTF-8 byte offsets but snaps to the nearest codepoint boundary so the notice never splits a multibyte character. Tools call <code>truncate()</code> on their assembled <code>content</code> just before returning and set <code>meta.truncated</code> from its result (OR-ing with any earlier per-tool cap).</p>
+      <div class="note">
+        <span class="label">Live vs. model-facing</span>
+        Truncation applies <strong>only to the model-facing <code>content</code></strong>. <code>bash</code> still streams the complete stdout/stderr to the TUI scrollback live, and the full output is what the user sees — the cap exists purely to bound context tokens.
+      </div>
+    </section>
+
+    <!-- 12 -->
+    <section id="ripgrep">
+      <h2><span class="num">12</span> Shared mechanic — grep ripgrep-with-fallback detection</h2>
+      <p><code>grep</code> prefers ripgrep (<code>rg</code>) for speed and gitignore-awareness, but must work on a machine without it. Detection happens <strong>once per session</strong> and is cached; the result is reported in <code>meta.backend</code>.</p>
+      <h4>Detection</h4>
+      <ol class="body">
+        <li>On first <code>grep</code> call, probe for <code>rg</code> on <code>PATH</code> by spawning <code>rg --version</code> via <code>Bun.spawn</code> and checking for exit code <code>0</code>.</li>
+        <li>Cache the boolean on the registry (session-scoped) so subsequent calls skip the probe.</li>
+        <li>If present → <strong>ripgrep backend</strong>: build <code>rg --json</code> (or line args) honoring <code>ignoreCase</code> (<code>-i</code>), <code>context</code> (<code>-C</code>), and <code>glob</code> (<code>-g</code>); parse output into the shared shape.</li>
+        <li>If absent → <strong>fallback backend</strong>: a pure-Bun walk using <code>Bun.Glob</code> to enumerate files (respecting the <code>glob</code> arg), <code>Bun.file().text()</code> to read them, and the JS <code>RegExp</code> engine to match lines. Binary files are skipped via a NUL-byte sniff; the same caps from <a href="#grep" class="inline">§5</a>/<a href="#truncation" class="inline">§11</a> are enforced in-process.</li>
+      </ol>
+<pre><code>let rgAvailable: boolean | null = null;   // session-cached
+
+async function hasRipgrep(): Promise&lt;boolean&gt; {
+  if (rgAvailable !== null) return rgAvailable;
+  try {
+    const p = Bun.spawn(["rg", "--version"], { stdout: "ignore", stderr: "ignore" });
+    rgAvailable = (await p.exited) === 0;
+  } catch {
+    rgAvailable = false;   // ENOENT -> not on PATH
+  }
+  return rgAvailable;
+}</code></pre>
+      <div class="note">
+        <span class="label">Parity contract</span>
+        Both backends MUST produce the same <code>ToolResult</code> shape, the same <code>path:line:text</code> rendering, the same "no match = <code>ok:true</code>, empty" semantics, and obey the same caps. The only observable difference is <code>meta.backend</code> and the fallback's lack of native <code>.gitignore</code> filtering. Regex dialect differences (PCRE2 vs. JS) are a known fallback caveat noted to the user, not papered over.
+      </div>
+    </section>
+
+    <!-- 13 -->
+    <section id="registry">
+      <h2><span class="num">13</span> Shared mechanic — the tool registry</h2>
+      <p>The registry holds the registered <code>Tool</code> instances and is the single chokepoint between the model and tool execution. It does three jobs: emit the model-facing schemas, dispatch a validated call, and normalize every outcome into a <code>ToolResult</code>.</p>
+<pre><code>class ToolRegistry {
+  private tools = new Map&lt;string, Tool&lt;unknown&gt;&gt;();
+
+  register&lt;I&gt;(tool: Tool&lt;I&gt;): void { this.tools.set(tool.name, tool); }
+
+  // (1) model-facing JSON Schema, one ToolSpec per tool
+  specs(): ToolSpec[] {
+    return [...this.tools.values()].map(t =&gt; ({
+      name: t.name,
+      description: t.description,
+      schema: z.toJSONSchema(t.schema),   // zod 4 -> JSON Schema
+    }));
+  }
+
+  // (2) validate -> (3) dispatch -> normalize
+  async run(call: ToolCall, ctx: ToolContext): Promise&lt;ToolResult&gt; {
+    const tool = this.tools.get(call.name);
+    if (!tool) {
+      return { ok: false, content: "", error: `unknown tool: ${call.name}` };
+    }
+    const parsed = tool.schema.safeParse(call.input);   // validate BEFORE run
+    if (!parsed.success) {
+      return {
+        ok: false,
+        content: "",
+        error: `invalid input for ${call.name}: ${formatZodError(parsed.error)}`,
+        meta: { validation: parsed.error.issues },
+      };
+    }
+    try {
+      return await tool.run(parsed.data, ctx);
+    } catch (err) {
+      ctx.logger.error("tool threw", { tool: call.name, err: String(err) });
+      return { ok: false, content: "", error: normalizeError(err) };   // never throw
+    }
+  }
+}</code></pre>
+      <h4>(1) <code>specs()</code> — model-facing schema</h4>
+      <p>Each tool's zod schema is converted to JSON Schema via <code>z.toJSONSchema</code> (zod 4). The result is wrapped in a provider-neutral <code>ToolSpec[]</code>; the <a class="inline" href="providers.html">provider adapters</a> map that to Anthropic <code>input_schema</code> or OpenAI <code>tools[].function.parameters</code> (the normalization map lives in <a class="inline" href="v0.html#provider">v0 §6</a> and <a class="inline" href="providers.html">providers.html</a>). The <code>.describe()</code> text on each field becomes the JSON Schema <code>description</code>, so the schemas above <em>are</em> the documentation the model reads.</p>
+      <h4>(2) Validation before execution</h4>
+      <p><code>schema.safeParse(call.input)</code> runs <strong>before</strong> <code>run()</code>, before the <a class="inline" href="v0.html#permissions">permission gate</a>. A validation failure short-circuits to an <code>ok:false</code> result whose <code>error</code> names the offending field — actionable for the model to retry — and never reaches disk or the approval prompt. Defaults declared in the schema (e.g. <code>bash.timeout_ms</code>, <code>ls.all</code>) are materialized here, so <code>run()</code> always receives a fully-populated, typed <code>I</code>.</p>
+      <h4>(3) Error normalization</h4>
+      <p>The registry guarantees the loop's <em>"every call gets a result"</em> invariant: <code>run()</code> may reject or throw, but the registry catches it and returns a <code>ToolResult</code>. <code>normalizeError()</code> maps common failures to clean, model-facing strings:</p>
+      <table>
+        <thead><tr><th>Thrown</th><th>Normalized error</th></tr></thead>
+        <tbody>
+          <tr><td><code>ENOENT</code></td><td><code>"file not found: &lt;path&gt;"</code></td></tr>
+          <tr><td><code>EACCES</code> / <code>EPERM</code></td><td><code>"permission denied: &lt;path&gt;"</code></td></tr>
+          <tr><td><code>EISDIR</code></td><td><code>"path is a directory"</code></td></tr>
+          <tr><td><code>AbortError</code></td><td><code>"aborted"</code></td></tr>
+          <tr><td>other <code>Error</code></td><td><code>err.message</code> (one line, no stack)</td></tr>
+        </tbody>
+      </table>
+      <p>Stack traces and raw errors go to <code>ctx.logger</code> / the transcript, never into model-facing <code>content</code>. A <strong>denied</strong> permission decision also returns a normalized <code>ToolResult</code> (<code>ok:false</code>, <code>"denied by user"</code>) rather than throwing — see <a class="inline" href="v0.html#permissions">v0 §8</a>. The net effect: the agent loop can always append a tool result and proceed, satisfying the <a class="inline" href="v0.html#loop">loop invariants</a>.</p>
+      <div class="note scope">
+        <span class="label">v0 scope</span>
+        Tools run <strong>sequentially</strong> in v0 (one call, one result, next call). Parallel tool calls are deferred (<a class="inline" href="roadmap.html">roadmap.html</a>), so the registry needs no concurrency control beyond the per-turn <code>AbortSignal</code>.
+      </div>
+    </section>
+
+    <footer>
+      om-cli · spec · tools (per-tool contracts) · drafted 2026-05-30 · elaborates v0 §7, expect churn
+    </footer>
+  </main>
+</div>
+</body>
+</html>

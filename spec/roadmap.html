@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>om-cli — Post-v0 Roadmap</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg-elev: #161b22; --bg-code: #1c2128; --border: #30363d;
+    --fg: #e6edf3; --fg-dim: #9da7b3; --fg-faint: #6e7681; --accent: #d2a8ff;
+    --accent-2: #79c0ff; --green: #7ee787; --orange: #ffa657; --red: #ff7b72;
+    --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.65; font-size: 16px; }
+  .wrap { display: grid; grid-template-columns: 260px 1fr; max-width: 1400px; margin: 0 auto; }
+  nav { position: sticky; top: 0; height: 100vh; overflow-y: auto; border-right: 1px solid var(--border); padding: 28px 20px; background: var(--bg-elev); }
+  nav .brand { font-family: var(--mono); font-weight: 700; font-size: 18px; color: var(--accent); letter-spacing: -0.5px; }
+  nav .brand .v { color: var(--fg-faint); font-weight: 400; font-size: 13px; }
+  nav ol { list-style: none; padding: 0; margin: 24px 0 0; counter-reset: sec; }
+  nav ol li { counter-increment: sec; margin: 2px 0; }
+  nav ol li a { display: block; color: var(--fg-dim); text-decoration: none; font-size: 14px; padding: 5px 10px; border-radius: 6px; transition: all .12s; }
+  nav ol li a::before { content: counter(sec) ".  "; color: var(--fg-faint); font-family: var(--mono); font-size: 12px; }
+  nav ol li a:hover { background: var(--bg-code); color: var(--fg); }
+  main { padding: 48px 56px 120px; max-width: 920px; }
+  header.hero { margin-bottom: 56px; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
+  header.hero h1 { font-family: var(--mono); font-size: 38px; margin: 0 0 8px; letter-spacing: -1px; }
+  header.hero .tag { color: var(--fg-dim); font-size: 18px; margin: 0; }
+  .pills { margin-top: 22px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { font-family: var(--mono); font-size: 12px; padding: 4px 11px; border-radius: 999px; background: var(--bg-code); border: 1px solid var(--border); color: var(--accent-2); }
+  .pill.alt { color: var(--green); } .pill.warn { color: var(--orange); }
+  section { margin-bottom: 56px; scroll-margin-top: 24px; }
+  h2 { font-size: 26px; margin: 0 0 18px; letter-spacing: -0.4px; display: flex; align-items: baseline; gap: 12px; }
+  h2 .num { font-family: var(--mono); font-size: 15px; color: var(--accent); }
+  h3 { font-size: 18px; margin: 30px 0 10px; color: var(--fg); }
+  h4 { font-size: 15px; margin: 22px 0 8px; color: var(--accent-2); font-family: var(--mono); }
+  p { color: var(--fg-dim); } p strong, li strong { color: var(--fg); }
+  ul, ol.body { color: var(--fg-dim); padding-left: 22px; } li { margin: 5px 0; }
+  code { font-family: var(--mono); background: var(--bg-code); padding: 1.5px 6px; border-radius: 5px; font-size: 13.5px; color: var(--accent); }
+  pre { background: var(--bg-code); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; overflow-x: auto; font-size: 13px; line-height: 1.55; }
+  pre code { background: none; padding: 0; color: var(--fg); }
+  .lead { font-size: 17px; color: var(--fg-dim); }
+  .note { border-left: 3px solid var(--accent-2); background: rgba(121,192,255,.07); padding: 12px 18px; border-radius: 0 8px 8px 0; margin: 18px 0; }
+  .note.scope { border-color: var(--green); background: rgba(126,231,135,.07); }
+  .note.defer { border-color: var(--orange); background: rgba(255,166,87,.07); }
+  .note .label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--fg-faint); display: block; margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--fg-faint); font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+  td { color: var(--fg-dim); } td code { font-size: 12.5px; }
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 10px; padding: 22px; margin: 18px 0; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: var(--fg-dim); white-space: pre; overflow-x: auto; }
+  .diagram b { color: var(--accent); } .diagram .c2 { color: var(--accent-2); } .diagram .g { color: var(--green); } .diagram .o { color: var(--orange); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+  .card h4 { margin-top: 0; }
+  .checklist { list-style: none; padding: 0; }
+  .checklist li { padding-left: 28px; position: relative; }
+  .checklist li::before { content: "▢"; position: absolute; left: 4px; color: var(--fg-faint); font-family: var(--mono); }
+  .checklist li.done::before { content: "▣"; color: var(--green); }
+  footer { color: var(--fg-faint); font-size: 13px; border-top: 1px solid var(--border); padding-top: 20px; margin-top: 60px; font-family: var(--mono); }
+  a.inline { color: var(--accent-2); }
+  @media (max-width: 880px) { .wrap { grid-template-columns: 1fr; } nav { position: relative; height: auto; } main { padding: 32px 24px 80px; } .grid2 { grid-template-columns: 1fr; } }
+</style>
+<style>
+  /* single-column .page layout (matches index.html idiom) */
+  .page { max-width: 960px; margin: 0 auto; padding: 56px 40px 120px; }
+  .page header.hero { margin-bottom: 40px; }
+  .page header.hero .brand { font-family: var(--mono); font-size: 13px; color: var(--fg-faint); letter-spacing: .5px; text-transform: uppercase; }
+  .page header.hero .back { font-family: var(--mono); font-size: 12px; color: var(--fg-faint); text-decoration: none; }
+  .page header.hero .back:hover { color: var(--accent-2); }
+  .page header.hero h1 { color: var(--accent); }
+  /* status badges (reused from index.html badge vocabulary) */
+  .badge { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .badge.now { background: rgba(126,231,135,.12); color: var(--green); border: 1px solid rgba(126,231,135,.3); }
+  .badge.next { background: rgba(255,166,87,.1); color: var(--orange); border: 1px solid rgba(255,166,87,.25); }
+  .badge.later { background: rgba(121,192,255,.1); color: var(--accent-2); border: 1px solid rgba(121,192,255,.25); }
+  .feature { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 22px 24px; margin: 18px 0; }
+  .feature > .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+  .feature h3 { margin: 0; }
+  .feature .dep { font-family: var(--mono); font-size: 12px; color: var(--fg-faint); margin-top: 12px; }
+  .feature .dep strong { color: var(--fg-dim); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="hero">
+    <a class="back" href="index.html">↑ Spec Index</a>
+    <div class="brand" style="margin-top:8px;">om-cli · spec wiki</div>
+    <h1>Post-v0 Roadmap</h1>
+    <p class="tag">What we deliberately cut from <a class="inline" href="v0.html">v0</a>, why, and the rough order it comes back. Each item is a spec sketch, not a commitment — phases shift as v0 ships.</p>
+    <div class="pills">
+      <span class="pill alt">v0.x · incremental</span>
+      <span class="pill warn">v1 · larger surface</span>
+      <span class="pill">design reference</span>
+    </div>
+  </header>
+
+  <!-- 0. How to read -->
+  <section id="how">
+    <h2><span class="num">00</span>How to read this</h2>
+    <p class="lead">v0 (defined in <a class="inline" href="v0.html">v0.html</a>) is the buildable core: a single Bun process, a UI-agnostic Core emitting a typed <code>AgentEvent</code> stream, two providers behind one <code>Provider</code> interface, seven tools, three permission classes, and append-only JSONL transcripts. Everything below was cut from that line deliberately to keep v0 shippable. Nothing here overrides a v0 decision; it elaborates on what comes after.</p>
+    <p>Each feature carries a <strong>phase badge</strong> and a short dependency note. Phases are coarse:</p>
+    <ul>
+      <li><span class="badge now">v0.x</span> &nbsp;Incremental additions that fit the existing architecture with little structural change — mostly new tools, new event shapes, or config keys.</li>
+      <li><span class="badge later">v1</span> &nbsp;Larger surface changes that touch the agent loop, message store, or the <a class="inline" href="providers.html">provider layer</a> in ways the v0 spec did not design for. These graduate the core spec to <code>v1.html</code>.</li>
+    </ul>
+    <div class="note scope">
+      <span class="label">Consistency rule</span>
+      Anything here that contradicts <a class="inline" href="v0.html">v0.html</a> is a bug in this page. Where a v0 "Open Question" is resolved post-v0 (e.g. Responses <code>store:false</code> statefulness, OpenTUI scrollback), the resolution is tracked in <a class="inline" href="decisions.html">decisions.html</a>, not here.
+    </div>
+  </section>
+
+  <!-- 1. Waves at a glance -->
+  <section id="waves">
+    <h2><span class="num">01</span>Waves at a glance</h2>
+    <p>Ten deferred features, grouped into two waves and ordered roughly by dependency. The "Blocked by" column is the load-bearing part — several v1 items only make sense once their v0.x prerequisites land.</p>
+    <table>
+      <thead>
+        <tr><th>Phase</th><th>Feature</th><th>One-liner</th><th>Blocked by</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="badge now">v0.x</span></td><td><a class="inline" href="#parallel-tools">Parallel tool calls</a></td><td>Run independent tool calls within one turn concurrently.</td><td>—</td></tr>
+        <tr><td><span class="badge now">v0.x</span></td><td><a class="inline" href="#resume">Session resume</a></td><td>Rehydrate a session from its JSONL transcript.</td><td>—</td></tr>
+        <tr><td><span class="badge now">v0.x</span></td><td><a class="inline" href="#diff-ui">Diff review UI</a></td><td>Patch staging + unified-diff edit strategy.</td><td>—</td></tr>
+        <tr><td><span class="badge now">v0.x</span></td><td><a class="inline" href="#hooks">Hooks &amp; lifecycle events</a></td><td>User shell hooks on agent/tool lifecycle points.</td><td>—</td></tr>
+        <tr><td><span class="badge now">v0.x</span></td><td><a class="inline" href="#slash">Slash-commands &amp; skills</a></td><td>Prompt templates + reusable instruction bundles.</td><td>—</td></tr>
+        <tr><td><span class="badge later">v1</span></td><td><a class="inline" href="#mcp">MCP client</a></td><td>External tool servers over the MCP protocol.</td><td>permission gate, tool registry</td></tr>
+        <tr><td><span class="badge later">v1</span></td><td><a class="inline" href="#compaction">Context compaction</a></td><td>Summarize old turns when the window fills.</td><td>resume, transcript</td></tr>
+        <tr><td><span class="badge later">v1</span></td><td><a class="inline" href="#subagents">Sub-agents &amp; fan-out</a></td><td>A <code>task</code> tool spawning child agent loops.</td><td>parallel tools, compaction</td></tr>
+        <tr><td><span class="badge later">v1</span></td><td><a class="inline" href="#routing">Per-task provider routing</a></td><td>Pick provider/model per request, not per session.</td><td>sub-agents</td></tr>
+        <tr><td><span class="badge later">v1</span></td><td><a class="inline" href="#memory">Cross-session memory</a></td><td>Durable facts that survive past one session.</td><td>resume, slash/skills</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 2. v0.x wave -->
+  <section id="v0x">
+    <h2><span class="num">02</span>Wave 1 — v0.x (incremental)</h2>
+    <p class="lead">These slot into the v0 architecture without graduating the core spec. They add tools, event variants, and config keys; they do not rewrite the loop or the message store.</p>
+
+    <!-- Parallel tool calls -->
+    <div class="feature" id="parallel-tools">
+      <div class="top"><h3>Parallel tool calls (within one turn)</h3><span class="badge now">v0.x</span></div>
+      <p>v0 executes tool calls <strong>sequentially</strong> (Loop invariant: "sequential tools in v0"). A single assistant turn can emit several <code>tool_call</code> items; v0.x runs the independent ones concurrently and still emits exactly one <code>tool.result</code> per call.</p>
+      <h4>Spec sketch</h4>
+      <p>The loop already collects all tool calls from a turn before dispatching. Replace the serial <code>for</code> loop with a bounded concurrent map. Each tool keeps its existing <code>permission</code> class; approval prompts are resolved <em>before</em> any execution begins, so the user is never racing modals. <code>write</code>/<code>edit</code> on the same path stay serialized by a per-path lock to preserve the must-have-read + unique-match guarantees.</p>
+      <pre><code>// loop.ts — replaces the sequential dispatch
+const calls = turn.toolCalls;                 // ToolCall[]
+const decisions = await resolveApprovals(calls, session.allowlist); // all modals first
+const results = await mapConcurrent(calls, MAX_PARALLEL_TOOLS, (call) =>
+  decisions[call.id].allowed
+    ? withPathLock(call, () => runTool(call, ctx))
+    : deniedResult(call, decisions[call.id].reason),  // deny still returns a result
+);
+for (const r of results) session.appendToolResult(r);  // ordered by call index</code></pre>
+      <p>Tool result <em>ordering</em> in the message store stays deterministic (by original call index) so transcripts replay identically regardless of finish order. <code>AbortSignal</code> still unwinds every in-flight tool cleanly — the existing invariant just fans out.</p>
+      <div class="note defer">
+        <span class="label">Why deferred</span>
+        v0 wanted one provably-correct path through the loop. Concurrency interacts with the approval modal, the per-path edit invariants, and abort unwinding — each a place to introduce a race. Sequential-first makes those invariants trivially true; parallelism is a measured optimization on top.
+      </div>
+      <div class="dep"><strong>Depends on:</strong> nothing. <strong>Unlocks:</strong> <a class="inline" href="#subagents">sub-agent fan-out</a> (which is parallel tool calls one level up). See the loop spec in <a class="inline" href="v0.html#loop">v0 §Agent Loop</a> and <a class="inline" href="tools.html">tools.html</a>.</div>
+    </div>
+
+    <!-- Session resume -->
+    <div class="feature" id="resume">
+      <div class="top"><h3>Session resume from JSONL</h3><span class="badge now">v0.x</span></div>
+      <p>v0 writes an append-only transcript to <code>.om/transcripts/&lt;session-id&gt;.jsonl</code> but never reads it back. Resume reconstructs a live <code>Session</code> from that file so a crashed or closed session can continue.</p>
+      <h4>Spec sketch</h4>
+      <p>The transcript is the source of truth — replay it to rebuild <code>messages</code>, <code>usage</code>, and the resolved <code>systemPrompt</code>. The session <code>allowlist</code> is <strong>not</strong> restored (it is explicitly session-scoped in v0); the user re-approves <code>write</code>/<code>exec</code> on first use after resume. Because OpenAI runs with <code>store:false</code> and we own all state, replay is symmetric across both providers — we just re-send the full history, exactly as v0 already does each turn.</p>
+      <pre><code>async function resume(sessionId: string): Promise&lt;Session&gt; {
+  const lines = (await Bun.file(transcriptPath(sessionId)).text())
+    .split("\n").filter(Boolean).map((l) =&gt; JSON.parse(l) as TranscriptEntry);
+  const s = new Session(sessionId);
+  for (const e of lines) {
+    if (e.kind === "message") s.messages.push(e.message);
+    if (e.kind === "tool_result") s.appendToolResult(e.result);
+    if (e.kind === "usage") s.usage = e.usage;       // last one wins
+  }
+  s.systemPrompt = reassembleSystemPrompt();          // re-run env/OM.md assembly
+  s.allowlist = new Set();                            // intentionally fresh
+  return s;
+}</code></pre>
+      <p>CLI surface: <code>om --resume &lt;session-id&gt;</code> and a "most recent" shorthand <code>om --continue</code>. A schema-version field on each transcript entry lets us refuse or migrate older formats rather than mis-parsing them.</p>
+      <div class="note defer">
+        <span class="label">Why deferred</span>
+        v0 explicitly has "no compaction" and a fixed system-prompt assembly order; resume only needs the transcript format to be stable first. It was cut to avoid pinning the JSONL schema before the tools that write it settled.
+      </div>
+      <div class="dep"><strong>Depends on:</strong> stable transcript schema (<a class="inline" href="v0.html#session">v0 §Sessions</a>). <strong>Unlocks:</strong> <a class="inline" href="#compaction">compaction</a> and <a class="inline" href="#memory">cross-session memory</a>.</div>
+    </div>
+
+    <!-- Diff review UI -->
+    <div class="feature" id="diff-ui">
+      <div class="top"><h3>Diff review UI / patch staging</h3><span class="badge now">v0.x</span></div>
+      <p>v0 ships two write tools: <code>write</code> (full file) and <code>edit</code> (exact-string, unique-match, must-have-read). v0 deliberately deferred unified-diff edits — and this is where that strategy lands. The diff UI is the natural home for it because a hunk-based edit is only safe to apply if the user can review the rendered patch first.</p>
+      <h4>Spec sketch</h4>
+      <p>Add a third write tool, <code>apply_patch</code>, taking a unified diff. Its <code>preview(input)</code> returns the rendered hunks; the <a class="inline" href="tui.html">TUI</a> shows a colorized diff card (green adds / red removes) in place of the plain approval modal. The user can <strong>Allow once</strong>, <strong>Allow session</strong>, or <strong>Deny</strong> — the same decision vocabulary as v0's permission gate, just with a richer preview. Multiple pending edits stage into a review queue applied atomically on accept.</p>
+      <pre><code>const applyPatch: Tool&lt;{ patch: string }&gt; = {
+  name: "apply_patch",
+  description: "Apply a unified diff. Each hunk must apply cleanly against the file as read this session.",
+  schema: z.object({ patch: z.string() }),
+  permission: "write",                       // same gate as write/edit
+  preview: (i) =&gt; renderHunks(i.patch),       // drives the diff card, not a one-line string
+  run: async ({ patch }, ctx) =&gt; {
+    const hunks = parseUnifiedDiff(patch);
+    for (const h of hunks) requireReadThisSession(ctx, h.path);  // v0's must-have-read carries over
+    return applyAtomically(hunks);           // all-or-nothing; ToolResult on failure
+  },
+};</code></pre>
+      <p>The existing <code>preview(input): string</code> tool contract widens to allow a structured preview the TUI can render as a diff; string previews stay valid for every other tool. <code>edit</code> and <code>write</code> are unchanged.</p>
+      <div class="note defer">
+        <span class="label">Why deferred</span>
+        Per v0 "Decided: exact-string edit (diff post-v0)". Unified-diff parsing/fuzzing and a diff-rendering TUI component are both real surface area; exact-string editing covers the common case with far less ambiguity, so the diff path waits for its review UI.
+      </div>
+      <div class="dep"><strong>Depends on:</strong> the OpenTUI shell (v0 M5) and the <code>preview</code> contract. <strong>Unlocks:</strong> safer multi-file refactors. See <a class="inline" href="tools.html">tools.html</a> (edit algorithm) and <a class="inline" href="tui.html">tui.html</a>.</div>
+    </div>
+
+    <!-- Hooks -->
+    <div class="feature" id="hooks">
+      <div class="top"><h3>Hooks &amp; lifecycle events</h3><span class="badge now">v0.x</span></div>
+      <p>Let users run shell commands at well-defined points in the agent lifecycle — e.g. run a formatter after every <code>write</code>, or block a <code>bash</code> call by policy. Hooks are configured, not coded, and observe (or veto) the existing <code>AgentEvent</code> stream.</p>
+      <h4>Spec sketch</h4>
+      <p>The Core already emits a typed event stream. Hooks tap named lifecycle points that map onto those events. A hook is a shell command receiving JSON on stdin; a non-zero exit on a <code>pre</code> hook turns into a denial (which, per v0, still returns a tool result to the model).</p>
+      <table>
+        <thead><tr><th>Hook point</th><th>Fires on</th><th>Can veto?</th></tr></thead>
+        <tbody>
+          <tr><td><code>session.start</code></td><td>session created / resumed</td><td>no</td></tr>
+          <tr><td><code>user.prompt</code></td><td>before a user turn is sent</td><td>no</td></tr>
+          <tr><td><code>tool.pre</code></td><td>before a tool runs (after approval)</td><td>yes → denial</td></tr>
+          <tr><td><code>tool.post</code></td><td>after <code>tool.result</code></td><td>no</td></tr>
+          <tr><td><code>turn.done</code></td><td>on the <code>turn.done</code> event</td><td>no</td></tr>
+        </tbody>
+      </table>
+      <pre><code>// ~/.om/config.json  (merged with project ./.om/config.json per v0 order)
+{
+  "hooks": {
+    "tool.post": [
+      { "match": { "name": "write|edit|apply_patch" }, "run": "bunx prettier --write $OM_TOOL_PATH" }
+    ],
+    "tool.pre": [
+      { "match": { "name": "bash" }, "run": ".om/guard-bash.sh" }   // exit!=0 ⇒ deny
+    ]
+  }
+}</code></pre>
+      <div class="note defer">
+        <span class="label">Why deferred</span>
+        Hooks are a public extension contract — once people script against the event names and stdin JSON, those become an API. v0 fixes the <code>AgentEvent</code> union first so the hook points can map onto it without churn.
+      </div>
+      <div class="dep"><strong>Depends on:</strong> the stable <code>AgentEvent</code> union and the permission gate (<a class="inline" href="v0.html#permissions">v0 §Permissions</a>). <strong>Pairs with:</strong> <a class="inline" href="#slash">slash-commands</a> (shared config surface).</div>
+    </div>
+
+    <!-- Slash commands / skills -->
+    <div class="feature" id="slash">
+      <div class="top"><h3>Slash-commands &amp; skill system</h3><span class="badge now">v0.x</span></div>
+      <p>Two related ideas. <strong>Slash-commands</strong> are user-invoked prompt templates (<code>/review</code>, <code>/test</code>) expanded inline before a turn. <strong>Skills</strong> are reusable instruction bundles (a markdown body, optional allowed-tools list) the model can load on demand to specialize behavior without bloating the base system prompt.</p>
+      <h4>Spec sketch</h4>
+      <p>Slash-commands are pure client-side: a command file is markdown with frontmatter, and invoking <code>/name args</code> substitutes <code>$ARGUMENTS</code> and runs it as the user turn. No loop changes. Skills layer onto v0's system-prompt assembly: the base order is <em>base → env block → project <code>OM.md</code> → tool usage notes</em>; an activated skill's body is appended as an additional block, never reordering the existing four.</p>
+      <pre><code>// .om/commands/review.md
+---
+description: Review the current diff for bugs
+allowed-tools: [read, grep, glob]      # optional narrowing for this command's turn
+---
+Review the staged changes for correctness and clarity. Focus on $ARGUMENTS.</code></pre>
+      <pre><code>// resolved at invocation
+expandSlash("/review error handling")
+  =&gt; userMessage(body.replace("$ARGUMENTS", "error handling"));</code></pre>
+      <p>Discovery follows v0's config precedence: <code>~/.om/commands/</code> then <code>./.om/commands/</code>, project overriding user. Skills live alongside under <code>commands/</code>'s sibling <code>skills/</code> and are surfaced to the model as a lightweight index it can choose to expand.</p>
+      <div class="note defer">
+        <span class="label">Why deferred</span>
+        Not needed to prove the loop. It is pure ergonomics built on the v0 system-prompt assembly and config-merge order, both of which must be fixed first so command/skill discovery has a stable precedence to inherit.
+      </div>
+      <div class="dep"><strong>Depends on:</strong> system-prompt assembly + config merge order (<a class="inline" href="v0.html#config">v0 §Config</a>). <strong>Unlocks:</strong> a clean home for <a class="inline" href="#memory">memory</a> recall commands.</div>
+    </div>
+  </section>
+
+  <!-- 3. v1 wave -->
+  <section id="v1">
+    <h2><span class="num">03</span>Wave 2 — v1 (structural)</h2>
+    <p class="lead">These reshape the core enough to graduate the spec to <code>v1.html</code>. Each builds on one or more v0.x items above.</p>
+
+    <!-- MCP -->
+    <div class="feature" id="mcp">
+      <div class="top"><h3>MCP client / external tool servers</h3><span class="badge later">v1</span></div>
+      <p>Connect to Model Context Protocol servers and expose their tools to the agent as if they were native. This makes om-cli extensible without recompiling — the killer feature for third-party tools.</p>
+      <h4>Spec sketch</h4>
+      <p>An MCP client connects to configured servers (stdio or HTTP) and lists their tools. Each remote tool is wrapped in an adapter that satisfies v0's <code>Tool&lt;I&gt;</code> interface: the server's JSON Schema becomes the tool <code>schema</code> (round-tripped through zod so validation stays uniform), and <code>run</code> forwards arguments over the protocol. Every MCP tool gets a permission class — defaulting to the most restrictive (<code>exec</code>, i.e. prompt) — and flows through the <em>same</em> approval gate as native tools. The model never sees a difference; the registry just has more entries.</p>
+      <pre><code>function mcpTool(server: McpConn, def: McpToolDef): Tool&lt;unknown&gt; {
+  return {
+    name: `${server.alias}__${def.name}`,        // namespaced to avoid collisions
+    description: def.description,
+    schema: jsonSchemaToZod(def.inputSchema),     // uniform validation
+    permission: server.config.permission ?? "exec",  // restrictive default; gate is unchanged
+    preview: (i) =&gt; `${server.alias}: ${def.name}(${summarize(i)})`,
+    run: (i, ctx) =&gt; server.call(def.name, i, ctx.signal),  // AbortSignal threaded through
+  };
+}</code></pre>
+      <div class="note defer">
+        <span class="label">Why deferred</span>
+        It widens the trust boundary: tools now execute outside our process. v0's permission model (auto-allow read / prompt write+exec, session allowlist keyed by tool+arg-signature) is the prerequisite — MCP tools must inherit it exactly, with no project-root jail and deny-still-returns-a-result preserved.
+      </div>
+      <div class="dep"><strong>Depends on:</strong> tool registry + permission gate (<a class="inline" href="v0.html#permissions">v0 §Permissions</a>), zod schema plumbing. <strong>Pairs with:</strong> <a class="inline" href="#hooks">hooks</a> for policy on remote tools.</div>
+    </div>
+
+    <!-- Compaction -->
+    <div class="feature" id="compaction">
+      <div class="top"><h3>Context compaction / summarization</h3><span class="badge later">v1</span></div>
+      <p>v0 states "No compaction in v0" — history grows unbounded until the turn cap or the context window stops it. v1 compacts old turns into a summary when the window approaches its limit, so long sessions keep working.</p>
+      <h4>Spec sketch</h4>
+      <p>Watch token <code>usage</code> (already tracked on the session and emitted on <code>turn.done</code>). When it crosses a threshold, take a prefix of older messages, ask the model to summarize them, and replace that prefix with a single synthetic summary message — keeping recent turns and any pinned context verbatim. The full untouched history still lives in the JSONL transcript, so compaction never loses data; it only shrinks the <em>in-context</em> window.</p>
+      <div class="diagram"><b>before</b>  [sys][m1][m2][m3]...[m40][m41]   <span class="o">← near window limit</span>
+<b>after</b>   [sys]<span class="g">[summary of m1..m32]</span>[m33]...[m41]
+         <span class="c2">transcript.jsonl still holds m1..m41 verbatim (append-only, untouched)</span></div>
+      <p>Symmetric across providers: both already resend full history every turn, so compaction is purely a transform on our canonical <code>Message[]</code> before serialization — no per-provider special-casing. A compaction event is emitted so the TUI can show a "history summarized" marker.</p>
+      <div class="note defer">
+        <span class="label">Why deferred</span>
+        Summarization is lossy and easy to get subtly wrong (dropping a decision the model later needs). v0 keeps history honest and bounded by the max-iteration turn cap instead. Compaction wants <a class="inline" href="#resume">resume</a>'s replay logic and a settled transcript schema first.
+      </div>
+      <div class="dep"><strong>Depends on:</strong> <a class="inline" href="#resume">session resume</a> + transcript schema. <strong>Unlocks:</strong> long-lived <a class="inline" href="#subagents">sub-agents</a>.</div>
+    </div>
+
+    <!-- Sub-agents -->
+    <div class="feature" id="subagents">
+      <div class="top"><h3>Sub-agents &amp; parallel task fan-out</h3><span class="badge later">v1</span></div>
+      <p>A <code>task</code> tool that spawns a child agent loop with its own message store, runs it to completion on a scoped instruction, and returns its final answer as a single <code>ToolResult</code>. The parent fans several of these out at once for independent investigations.</p>
+      <h4>Spec sketch</h4>
+      <p>The agent loop is already UI-agnostic and emits an <code>AgentEvent</code> async-iterable. A sub-agent is just another instance of that loop — given a fresh <code>Session</code>, a restricted tool set, and a budget (its own turn cap). Its events are tagged with the child id so the TUI can nest them; only its <code>turn.done</code> text bubbles up to the parent as the tool output. Fan-out reuses <a class="inline" href="#parallel-tools">parallel tool calls</a>: spawning N <code>task</code> calls in one turn runs N child loops concurrently.</p>
+      <pre><code>const task: Tool&lt;{ prompt: string; tools?: string[] }&gt; = {
+  name: "task",
+  description: "Delegate a scoped sub-task to a child agent. Returns its final report.",
+  schema: z.object({ prompt: z.string(), tools: z.array(z.string()).optional() }),
+  permission: "read",                          // spawning is safe; the child's own tools gate themselves
+  preview: (i) =&gt; `delegate: ${i.prompt.slice(0, 60)}…`,
+  run: async (i, ctx) =&gt; {
+    const child = newSession({ tools: subsetTools(i.tools), turnCap: ctx.childCap });
+    const final = await runLoop(child, i.prompt, ctx.signal);  // child events tagged + nested in TUI
+    return { ok: true, content: final.text };
+  },
+};</code></pre>
+      <p>Child tool calls still hit the parent's permission gate — delegation does not bypass approvals. Aborting the parent cancels all children via the shared <code>AbortSignal</code> tree.</p>
+      <div class="note defer">
+        <span class="label">Why deferred</span>
+        It is concurrency, budgeting, and nested-UI all at once. v0 proves a single loop end-to-end; sub-agents are that loop composed with itself, which is only sane once parallel dispatch and compaction (for long children) exist.
+      </div>
+      <div class="dep"><strong>Depends on:</strong> <a class="inline" href="#parallel-tools">parallel tool calls</a> + <a class="inline" href="#compaction">compaction</a>. <strong>Unlocks:</strong> <a class="inline" href="#routing">per-task routing</a>.</div>
+    </div>
+
+    <!-- Routing -->
+    <div class="feature" id="routing">
+      <div class="top"><h3>Multi-provider routing per task</h3><span class="badge later">v1</span></div>
+      <p>v0 picks one provider + model per session via config. v1 lets a request choose its provider/model — e.g. a cheap fast model for a <code>task</code> sub-agent, a strong model for the main thread.</p>
+      <h4>Spec sketch</h4>
+      <p>The <code>Provider</code> interface (<code>{ id, stream(req) }</code>) is already the only thing the loop talks to. Routing adds a thin resolver that maps a <em>route key</em> to a concrete provider instance + model, evaluated per <code>ProviderRequest</code> rather than once per session. Because the message store is canonical and per-provider adapters serialize on the way out, switching providers mid-session is just choosing a different adapter for the next request — the normalization map in <a class="inline" href="providers.html">providers.html</a> already covers both wire formats.</p>
+      <pre><code>type Route = { provider: "anthropic" | "openai"; model: string };
+function resolveRoute(ctx: { role: "main" | "subagent"; hint?: string }): Route {
+  return config.routes[ctx.role] ?? config.routes.default;   // config-driven, per request
+}
+// loop picks the adapter at send time:
+const route = resolveRoute(ctx);
+const provider = providers[route.provider];
+yield* provider.stream({ ...req, model: route.model });</code></pre>
+      <div class="note defer">
+        <span class="label">Why deferred</span>
+        Most useful once <a class="inline" href="#subagents">sub-agents</a> exist (so there are distinct roles to route). v0 keeps a single provider/model to keep the cost/usage accounting and the Anthropic↔OpenAI normalization (still being proven) simple.
+      </div>
+      <div class="dep"><strong>Depends on:</strong> the <code>Provider</code> interface (<a class="inline" href="v0.html#provider">v0 §Provider Layer</a>) + <a class="inline" href="#subagents">sub-agents</a>. <strong>See:</strong> <a class="inline" href="providers.html">providers.html</a>.</div>
+    </div>
+
+    <!-- Memory -->
+    <div class="feature" id="memory">
+      <div class="top"><h3>Persistent cross-session memory</h3><span class="badge later">v1</span></div>
+      <p>Durable facts that outlive a single session — "this repo uses pnpm", "the user prefers terse diffs" — recalled into future sessions without re-deriving them. v0's only persistence is the per-session JSONL transcript; memory is the first state shared <em>across</em> sessions.</p>
+      <h4>Spec sketch</h4>
+      <p>A memory store at <code>~/.om/memory/</code> (global) and <code>./.om/memory/</code> (project), following v0's config precedence. Reads fold into system-prompt assembly as a new block <em>after</em> project <code>OM.md</code> and before tool usage notes — extending the v0 order, not reordering it. Writes go through tools (<code>memory_write</code> / <code>memory_forget</code>) so they pass the permission gate and land in the transcript like any other effect — no silent background writes.</p>
+      <pre><code>// system prompt assembly (v0 order, with the new block slotted in):
+//   base → env block → project OM.md → [MEMORY block] → tool usage notes
+const memory: Tool&lt;{ key: string; value: string; scope: "project" | "global" }&gt; = {
+  name: "memory_write",
+  description: "Persist a durable fact for future sessions.",
+  schema: z.object({ key: z.string(), value: z.string(), scope: z.enum(["project", "global"]) }),
+  permission: "write",                          // user-visible, gated, logged
+  preview: (i) =&gt; `remember [${i.scope}] ${i.key} = ${i.value}`,
+  run: (i) =&gt; writeMemory(i.scope, i.key, i.value),
+};</code></pre>
+      <div class="note defer">
+        <span class="label">Why deferred</span>
+        Cross-session state is a new durability and trust surface (stale facts, leaking project context into global scope). v0 stays strictly session-scoped — even the permission allowlist resets per session. Memory waits for <a class="inline" href="#resume">resume</a> and the <a class="inline" href="#slash">skill/command</a> machinery that gives it natural recall ergonomics.
+      </div>
+      <div class="dep"><strong>Depends on:</strong> <a class="inline" href="#resume">resume</a>, system-prompt assembly, config precedence. <strong>Pairs with:</strong> <a class="inline" href="#slash">slash-commands &amp; skills</a>.</div>
+    </div>
+  </section>
+
+  <!-- 4. Out of scope -->
+  <section id="non-goals">
+    <h2><span class="num">04</span>Still out of scope (for now)</h2>
+    <p>Things explicitly not on this roadmap yet — listed so they are not mistaken for omissions:</p>
+    <ul class="checklist">
+      <li>A non-terminal UI (web / editor extension). The Core is UI-agnostic by design, so a second consumer is <em>possible</em>, but the <a class="inline" href="tui.html">TUI</a> is the only planned front end.</li>
+      <li>A plugin/extension API beyond <a class="inline" href="#mcp">MCP</a> and <a class="inline" href="#hooks">hooks</a> — those two are the sanctioned extension surfaces.</li>
+      <li>Project-root path jail / sandboxing. v0 decided the approval prompt is the boundary; revisiting that is a <a class="inline" href="decisions.html">decision</a>, not a feature.</li>
+      <li>Provider-side state (OpenAI <code>store:true</code>, server-held threads). v0 owns all state with <code>store:false</code>; flipping this is an open question, tracked in <a class="inline" href="decisions.html">decisions.html</a>.</li>
+      <li>Fine-grained per-argument permissions beyond the v0 tool+arg-signature allowlist.</li>
+    </ul>
+    <div class="note">
+      <span class="label">Where decisions live</span>
+      This page tracks <em>what</em> and <em>roughly when</em>. The <em>why we chose X over Y</em> for any of the above belongs in <a class="inline" href="decisions.html">decisions.html</a> (ADR-style), and the buildable contract for each shipped feature graduates into <a class="inline" href="v0.html">the core spec</a> (becoming <code>v1.html</code> when the v1 wave lands).
+    </div>
+  </section>
+
+  <footer>
+    om-cli · post-v0 roadmap · drafted 2026-05-30 · phases are directional, expect re-ordering
+  </footer>
+</div>
+</body>
+</html>
